@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="WordRegulator.Domain/WordRegulator.Domain.csproj" />
+  <Project Path="WordRegulator.Application/WordRegulator.Application.csproj" />
+  <Project Path="WordRegulator.Infrastructure/WordRegulator.Infrastructure.csproj" />
+  <Project Path="WordRegulatorApp/WordRegulatorApp.csproj" />
+</Solution>
