@@ -6,8 +6,8 @@
         xmlns:vm="clr-namespace:WordRegulatorApp.ViewModels"
         mc:Ignorable="d"
         Title="WordRegulator - Çoklu Word Şablon &amp; Değişken Düzenleyici" 
-        Height="870" Width="1280"
-        MinHeight="720" MinWidth="1024"
+        Height="900" Width="1320"
+        MinHeight="740" MinWidth="1024"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BgDarkBrush}"
         Foreground="{StaticResource TextPrimaryBrush}">
@@ -24,7 +24,7 @@
             <RowDefinition Height="Auto"/>
             <!-- 2: Search Bar & Actions -->
             <RowDefinition Height="Auto"/>
-            <!-- 3: Main Variables Input Grid (Scrollable) -->
+            <!-- 3: Main Variables & Interactive Calculation Panels (Scrollable) -->
             <RowDefinition Height="*"/>
             <!-- 4: Bottom Action & Status Footer -->
             <RowDefinition Height="Auto"/>
@@ -161,102 +161,303 @@
             <Button Grid.Column="1" Content="Varsayılana Sıfırla" Command="{Binding ResetAllCommand}" Style="{StaticResource SecondaryButtonStyle}" VerticalAlignment="Center"/>
         </Grid>
 
-        <!-- 3. MAIN VARIABLES INPUT GRID (SCROLLABLE) -->
+        <!-- 3. MAIN VARIABLES & CALCULATORS SCROLLABLE CONTAINER -->
         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,0,16">
-            <ItemsControl ItemsSource="{Binding FilteredVariablesView}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal"/>
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:VariableItemViewModel}">
-                        <!-- Variable Input Card -->
-                        <Border Width="385" Margin="0,0,12,12" Background="{StaticResource CardDarkBrush}" CornerRadius="10" Padding="14" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
+            <StackPanel>
+                <!-- ================= ⚡ VS30 JEOFİZİK HESAPLAMA PANENİ ================= -->
+                <Border Background="{StaticResource PanelDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,16" BorderBrush="{StaticResource AccentPurpleBrush}" BorderThickness="1">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                                <!-- Header: Title + Type Badge -->
-                                <Grid Grid.Row="0" Margin="0,0,0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
+                        <!-- Panel Başlığı & Hafriyat Derinliği (Df) -->
+                        <Grid Grid.Row="0" Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
 
-                                    <TextBlock Grid.Column="0" Text="{Binding DisplayName}" FontWeight="Bold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Background="{StaticResource AccentPurpleBrush}" CornerRadius="6" Width="28" Height="28" Margin="0,0,10,0">
+                                    <TextBlock Text="📊" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="VS30 Zemin Kayma Dalga Hızı Hesaplayıcı [Vs30 = 30 / Σ(hi / Vsi)]" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="Df (Hafriyat Derinliği) ve tabaka aralıklarına göre VS30 formülü canlı hesaplanır." FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
 
-                                    <!-- Badge for Type -->
-                                    <Border Grid.Column="1" CornerRadius="4" Padding="6,2" Margin="6,0,0,0">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsDependent}" Value="False">
-                                                        <Setter Property="Background" Value="#164E63"/>
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding IsDependent}" Value="True">
-                                                        <Setter Property="Background" Value="#4C1D95"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                        <TextBlock FontSize="10" FontWeight="Bold">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
+                            <!-- Df (Hafriyat Derinliği) Girdisi -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                                <TextBlock Text="Df (Hafriyat/Temel Derinliği m):" FontSize="12" Foreground="{StaticResource AccentPurpleBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Text="{Binding DfInput, UpdateSourceTrigger=PropertyChanged}" Width="70" Style="{StaticResource DarkTextBoxStyle}"/>
+                            </StackPanel>
+
+                            <!-- Tabaka Sayısı Seçeneği -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Tabaka Sayısı:" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <ComboBox ItemsSource="{Binding Vs30LayerCountOptions}" SelectedItem="{Binding SelectedVs30LayerCount}" Width="75" Height="32" Padding="8,4" Background="#13131A" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Tabaka İntputları -->
+                        <ItemsControl Grid.Row="1" ItemsSource="{Binding Vs30Layers}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:Vs30LayerViewModel}">
+                                    <Border Width="235" Margin="0,0,10,8" Background="#1A1A24" CornerRadius="8" Padding="10" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding LayerName}" FontWeight="Bold" FontSize="12" Foreground="{StaticResource AccentPurpleBrush}" Margin="0,0,0,6"/>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="4"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="4"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="Alt (m):" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    <TextBox Text="{Binding StartDepthInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="Üst (m):" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    <TextBox Text="{Binding EndDepthInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="4">
+                                                    <TextBlock Text="Vs (m/s):" FontSize="10" Foreground="{StaticResource AccentCyanBrush}" FontWeight="Bold"/>
+                                                    <TextBox Text="{Binding VelocityInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Border>
+
+                <!-- ================= 🏗️ SONDAJ KUYULARI İNTERAKTİF YÖNETİM PANENİ ================= -->
+                <Border Background="{StaticResource PanelDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,16" BorderBrush="{StaticResource AccentCyanBrush}" BorderThickness="1">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Panel Başlığı & Kuyu Sayısı Elle Giriş Kutusı -->
+                        <Grid Grid.Row="0" Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Background="{StaticResource AccentCyanBrush}" CornerRadius="6" Width="28" Height="28" Margin="0,0,10,0">
+                                    <TextBlock Text="⛏️" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Sondaj Kuyuları ve Metraj Yönetimi (Dinamik Kuyu Girişi)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="Kuyu sayısını elle girebilirsiniz. Girilen sayıya göre otomatik detay alanları açılır." FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Sondaj Kuyusu Sayısı ELLE GİRİŞ KUTUSU -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Sondaj Kuyusu Sayısı (Elle Girin):" FontSize="12" Foreground="{StaticResource AccentCyanBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Text="{Binding DrillingWellCountInput, UpdateSourceTrigger=PropertyChanged}" Width="65" Style="{StaticResource DarkTextBoxStyle}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Dinamik Sondaj Kuyu Kartları -->
+                        <ItemsControl Grid.Row="1" ItemsSource="{Binding DrillingWells}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:DrillingWellViewModel}">
+                                    <Border Width="385" Margin="0,0,12,12" Background="#1A1A24" CornerRadius="10" Padding="12" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                                        <StackPanel>
+                                            <!-- Kuyu Başlığı -->
+                                            <Border Background="#20202B" CornerRadius="6" Padding="8,4" Margin="0,0,0,8">
+                                                <TextBlock Text="{Binding WellName, StringFormat='📌 {0} Kuyusu Detayları'}" FontWeight="Bold" FontSize="12" Foreground="{StaticResource AccentCyanBrush}"/>
+                                            </Border>
+
+                                            <!-- Enlem & Boylam -->
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="8"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="Enlem:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    <TextBox Text="{Binding Latitude, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="Boylam:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    <TextBox Text="{Binding Longitude, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Arazi Kotu & Sondaj Dip Kotu & Metre -->
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="6"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="6"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="Arazi Kotu:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    <TextBox Text="{Binding GroundKot, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="Dip Kotu:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    <TextBox Text="{Binding BottomKot, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="4">
+                                                    <TextBlock Text="Derinlik (m):" FontSize="10" Foreground="{StaticResource AccentCyanBrush}" FontWeight="Bold"/>
+                                                    <TextBox Text="{Binding DepthInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Tarihler: Başlangıç & Bitiş -->
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="8"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="Başlangıç Tarihi:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    <TextBox Text="{Binding StartDate, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="Bitiş Tarihi:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    <TextBox Text="{Binding FinishDate, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Yeraltı Suyu Durumu -->
+                                            <StackPanel>
+                                                <TextBlock Text="Kuyu Yeraltı Suyu Durumu:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                <TextBox Text="{Binding GroundwaterStatus, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Border>
+
+                <!-- ================= 📝 GENEL DEĞİŞKENLER İNPUT GRID ================= -->
+                <ItemsControl ItemsSource="{Binding FilteredVariablesView}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:VariableItemViewModel}">
+                            <!-- Variable Input Card -->
+                            <Border Width="385" Margin="0,0,12,12" Background="{StaticResource CardDarkBrush}" CornerRadius="10" Padding="14" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Header: Title + Type Badge -->
+                                    <Grid Grid.Row="0" Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0" Text="{Binding DisplayName}" FontWeight="Bold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+
+                                        <!-- Badge for Type -->
+                                        <Border Grid.Column="1" CornerRadius="4" Padding="6,2" Margin="6,0,0,0">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsDependent}" Value="False">
-                                                            <Setter Property="Text" Value="BAĞIMSIZ"/>
-                                                            <Setter Property="Foreground" Value="{StaticResource AccentCyanBrush}"/>
+                                                            <Setter Property="Background" Value="#164E63"/>
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding IsDependent}" Value="True">
-                                                            <Setter Property="Text" Value="BAĞIMLI (KİLİTLİ)"/>
-                                                            <Setter Property="Foreground" Value="{StaticResource AccentPurpleBrush}"/>
+                                                            <Setter Property="Background" Value="#4C1D95"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </Border>
+                                            </Border.Style>
+                                            <TextBlock FontSize="10" FontWeight="Bold">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsDependent}" Value="False">
+                                                                <Setter Property="Text" Value="BAĞIMSIZ"/>
+                                                                <Setter Property="Foreground" Value="{StaticResource AccentCyanBrush}"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsDependent}" Value="True">
+                                                                <Setter Property="Text" Value="BAĞIMLI (KİLİTLİ)"/>
+                                                                <Setter Property="Foreground" Value="{StaticResource AccentPurpleBrush}"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- Placeholder Key Tag -->
+                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
+                                        <Border Background="#13131A" CornerRadius="4" Padding="5,2" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                                            <TextBlock Text="{Binding Key, StringFormat='\{\{\{0\}\}\}'}" FontSize="11" FontFamily="Consolas, Courier New" Foreground="{StaticResource AccentCyanBrush}"/>
+                                        </Border>
+                                        <TextBlock Text="{Binding Hint}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="8,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+
+                                    <!-- Input Box (Disabled / ReadOnly for Dependent variables) -->
+                                    <TextBox Grid.Row="2" 
+                                             Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" 
+                                             IsEnabled="{Binding IsEnabled}" 
+                                             IsReadOnly="{Binding IsReadOnly}" 
+                                             Style="{StaticResource DarkTextBoxStyle}"/>
+
+                                    <!-- Sub-info for Dependent variables -->
+                                    <Grid Grid.Row="3" Margin="0,4,0,0">
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsDependent}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
+                                        <TextBlock Text="🔒 Bağımlı değişken (Otomatik hesaplanır)." FontSize="10" Foreground="{StaticResource AccentPurpleBrush}" VerticalAlignment="Center"/>
+                                    </Grid>
                                 </Grid>
-
-                                <!-- Placeholder Key Tag -->
-                                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
-                                    <Border Background="#13131A" CornerRadius="4" Padding="5,2" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
-                                        <TextBlock Text="{Binding Key, StringFormat='\{\{\{0\}\}\}'}" FontSize="11" FontFamily="Consolas, Courier New" Foreground="{StaticResource AccentCyanBrush}"/>
-                                    </Border>
-                                    <TextBlock Text="{Binding Hint}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="8,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                </StackPanel>
-
-                                <!-- Input Box (Disabled / ReadOnly for Dependent variables) -->
-                                <TextBox Grid.Row="2" 
-                                         Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" 
-                                         IsEnabled="{Binding IsEnabled}" 
-                                         IsReadOnly="{Binding IsReadOnly}" 
-                                         Style="{StaticResource DarkTextBoxStyle}"/>
-
-                                <!-- Sub-info for Dependent variables -->
-                                <Grid Grid.Row="3" Margin="0,4,0,0">
-                                    <Grid.Style>
-                                        <Style TargetType="Grid">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsDependent}" Value="True">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Grid.Style>
-                                    <TextBlock Text="🔒 Bağımlı değişken (Otomatik hesaplanır, değiştirilemez)." FontSize="10" Foreground="{StaticResource AccentPurpleBrush}" VerticalAlignment="Center"/>
-                                </Grid>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
         </ScrollViewer>
 
         <!-- 4. BOTTOM ACTION & STATUS FOOTER -->

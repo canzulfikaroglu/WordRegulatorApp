@@ -1,3 +1,4 @@
+
 using WordRegulator.Domain.Enums;
 
 namespace WordRegulator.Domain.Entities;

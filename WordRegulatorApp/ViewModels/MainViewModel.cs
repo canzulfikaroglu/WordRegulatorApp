@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
 using WordRegulator.Application.Interfaces;
+using WordRegulator.Domain.Entities;
 using WordRegulator.Domain.Enums;
 using WordRegulator.Domain.Interfaces;
 
@@ -47,7 +48,7 @@ public partial class MainViewModel : ObservableObject
     private string _statusMessage = "Lütfen bir Şablon Klasörü seçin (Klasör Seç butonunu kullanabilirsiniz).";
 
     [ObservableProperty]
-    private string _statusMessageType = "Info"; // Info, Success, Error
+    private string _statusMessageType = "Info";
 
     [ObservableProperty]
     private int _totalVariableCount;
@@ -57,6 +58,25 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private int _dependentCount;
+
+    // ================= VS30 HESAPLAYICI DİNAMİK ÖZELLİKLERİ =================
+    public List<int> Vs30LayerCountOptions { get; } = new() { 4, 5 };
+
+    [ObservableProperty]
+    private int _selectedVs30LayerCount = 5;
+
+    [ObservableProperty]
+    private string _dfInput = "0.82";
+
+    public double Df => double.TryParse(DfInput.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0.0;
+
+    public ObservableCollection<Vs30LayerViewModel> Vs30Layers { get; } = new();
+
+    // ================= SONDAJ KUYULARI DİNAMİK ÖZELLİKLERİ =================
+    [ObservableProperty]
+    private string _drillingWellCountInput = "3";
+
+    public ObservableCollection<DrillingWellViewModel> DrillingWells { get; } = new();
 
     public ObservableCollection<VariableItemViewModel> Variables { get; } = new();
     public ICollectionView FilteredVariablesView { get; }
@@ -72,7 +92,160 @@ public partial class MainViewModel : ObservableObject
         FilteredVariablesView.Filter = FilterVariablesPredicate;
 
         LoadVariables();
+        SetupVs30Layers();
+        SetupDrillingWells();
         ScanTemplateDirectory();
+    }
+
+    private void SetupVs30Layers()
+    {
+        Vs30Layers.Clear();
+
+        var defaults = new Tuple<double, double, double>[]
+        {
+            new(0.00, 1.10, 157.0),
+            new(1.10, 7.50, 1008.0),
+            new(7.50, 13.50, 1152.0),
+            new(13.50, 21.00, 1236.0),
+            new(21.00, 30.00, 1254.0)
+        };
+
+        for (int i = 1; i <= SelectedVs30LayerCount; i++)
+        {
+            var def = (i <= defaults.Length) ? defaults[i - 1] : new Tuple<double, double, double>(0.0, i * 6.0, 300.0 + (i * 100));
+            var layer = new Vs30LayerViewModel(i, def.Item1, def.Item2, def.Item3);
+            layer.LayerChanged += OnVs30LayerChanged;
+            Vs30Layers.Add(layer);
+        }
+
+        RecalculateVs30();
+    }
+
+    partial void OnSelectedVs30LayerCountChanged(int value)
+    {
+        SetupVs30Layers();
+    }
+
+    partial void OnDfInputChanged(string value)
+    {
+        OnPropertyChanged(nameof(Df));
+        RecalculateVs30();
+    }
+
+    private void OnVs30LayerChanged(object? sender, EventArgs e)
+    {
+        RecalculateVs30();
+    }
+
+    private void RecalculateVs30()
+    {
+        var domainLayers = Vs30Layers.Select(x => new Vs30LayerItem
+        {
+            LayerNumber = x.LayerNumber,
+            StartDepth = x.StartDepth,
+            EndDepth = x.EndDepth,
+            Velocity = x.Velocity
+        });
+
+        string calculatedVs30 = _variableService.CalculateVs30(domainLayers, Df);
+
+        var vs30Var = Variables.FirstOrDefault(x => string.Equals(x.Key, "VS30", StringComparison.OrdinalIgnoreCase));
+        if (vs30Var != null)
+        {
+            vs30Var.Value = calculatedVs30;
+        }
+    }
+
+    partial void OnDrillingWellCountInputChanged(string value)
+    {
+        SetupDrillingWells();
+    }
+
+    private void SetupDrillingWells()
+    {
+        if (!int.TryParse(DrillingWellCountInput, out int count) || count < 1)
+        {
+            count = 1;
+        }
+        if (count > 30) count = 30;
+
+        while (DrillingWells.Count < count)
+        {
+            int nextIdx = DrillingWells.Count + 1;
+            var well = new DrillingWellViewModel($"SK-{nextIdx}", defaultDepth: 15.0);
+            well.WellChanged += OnDrillingWellChanged;
+            DrillingWells.Add(well);
+        }
+
+        while (DrillingWells.Count > count)
+        {
+            var last = DrillingWells.Last();
+            last.WellChanged -= OnDrillingWellChanged;
+            DrillingWells.RemoveAt(DrillingWells.Count - 1);
+        }
+
+        RecalculateDrillingWellsSummary();
+
+        var countVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "DRİLLİNGWELLCOUNT", StringComparison.OrdinalIgnoreCase));
+        if (countVar != null)
+        {
+            countVar.Value = count.ToString();
+        }
+    }
+
+    private void OnDrillingWellChanged(object? sender, EventArgs e)
+    {
+        RecalculateDrillingWellsSummary();
+    }
+
+    private void RecalculateDrillingWellsSummary()
+    {
+        var domainWells = DrillingWells.Select(w => new DrillingWellItem
+        {
+            WellName = w.WellName,
+            Latitude = w.Latitude,
+            Longitude = w.Longitude,
+            GroundKot = w.GroundKot,
+            BottomKot = w.BottomKot,
+            DepthMeters = w.DepthMeters,
+            GroundwaterStatus = w.GroundwaterStatus,
+            StartDate = w.StartDate,
+            FinishDate = w.FinishDate
+        });
+
+        var (totalDrilling, groundwaterLevel) = _variableService.SummarizeDrillingWells(domainWells);
+
+        var totalVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "TOTALDRİLLİNG", StringComparison.OrdinalIgnoreCase));
+        if (totalVar != null)
+        {
+            totalVar.Value = totalDrilling;
+        }
+
+        var gwVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "GROUNDWATERLEVEL", StringComparison.OrdinalIgnoreCase));
+        if (gwVar != null)
+        {
+            gwVar.Value = groundwaterLevel;
+        }
+
+        var firstWell = DrillingWells.FirstOrDefault();
+        if (firstWell != null)
+        {
+            if (!string.IsNullOrWhiteSpace(firstWell.Latitude))
+            {
+                var latVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "LATİTUDE", StringComparison.OrdinalIgnoreCase));
+                if (latVar != null) latVar.Value = firstWell.Latitude;
+            }
+            if (!string.IsNullOrWhiteSpace(firstWell.Longitude))
+            {
+                var lonVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "LONGİTUDE", StringComparison.OrdinalIgnoreCase));
+                if (lonVar != null) lonVar.Value = firstWell.Longitude;
+            }
+            if (!string.IsNullOrWhiteSpace(firstWell.StartDate))
+            {
+                var dateVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "DRİLLİNGDATE", StringComparison.OrdinalIgnoreCase));
+                if (dateVar != null) dateVar.Value = $"{firstWell.StartDate} - {firstWell.FinishDate}";
+            }
+        }
     }
 
     public void ScanTemplateDirectory()
@@ -133,6 +306,13 @@ public partial class MainViewModel : ObservableObject
     {
         if (_isRecalculating || sender is not VariableItemViewModel item) return;
 
+        // Kullanıcı SHEETİSLANDPARCEL alanını elle yazarsa geçersiz kılma olarak işaretle
+        if (string.Equals(item.Key, "SHEETİSLANDPARCEL", StringComparison.OrdinalIgnoreCase))
+        {
+            _userOverriddenKeys.Add(item.Key);
+            item.IsManualOverride = true;
+        }
+
         if (item.IsDependent)
         {
             _userOverriddenKeys.Add(item.Key);
@@ -153,7 +333,9 @@ public partial class MainViewModel : ObservableObject
 
             foreach (var item in Variables)
             {
-                if (item.IsDependent && !_userOverriddenKeys.Contains(item.Key))
+                bool isCalculatedField = item.IsDependent || string.Equals(item.Key, "SHEETİSLANDPARCEL", StringComparison.OrdinalIgnoreCase);
+
+                if (isCalculatedField && !_userOverriddenKeys.Contains(item.Key))
                 {
                     if (updated.TryGetValue(item.Key, out var newVal) && item.Value != newVal)
                     {
@@ -286,17 +468,30 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            // Kullanıcının girdiği klasör başlığını temizle (Geçersiz karakterleri engelle)
             string folderTitle = string.IsNullOrWhiteSpace(OutputFolderTitle) ? "Rapor_Çıktısı" : OutputFolderTitle.Trim();
             foreach (char invalidChar in Path.GetInvalidFileNameChars())
             {
                 folderTitle = folderTitle.Replace(invalidChar, '_');
             }
 
-            // Çıktıların toplanacağı özel alt klasör yolu
             string targetSubfolder = Path.Combine(OutputDirectoryPath, folderTitle);
 
             var replacements = Variables.ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
+
+            for (int i = 0; i < DrillingWells.Count; i++)
+            {
+                var w = DrillingWells[i];
+                int idx = i + 1;
+                replacements[$"SK{idx}_NAME"] = w.WellName;
+                replacements[$"SK{idx}_LAT"] = w.Latitude;
+                replacements[$"SK{idx}_LON"] = w.Longitude;
+                replacements[$"SK{idx}_GROUNDKOT"] = w.GroundKot;
+                replacements[$"SK{idx}_BOTTOMKOT"] = w.BottomKot;
+                replacements[$"SK{idx}_DEPTH"] = $"{w.DepthMeters:F2}m";
+                replacements[$"SK{idx}_WATER"] = w.GroundwaterStatus;
+                replacements[$"SK{idx}_START"] = w.StartDate;
+                replacements[$"SK{idx}_FINISH"] = w.FinishDate;
+            }
 
             var batchResult = await _documentProcessor.ProcessTemplateDirectoryAsync(TemplateDirectoryPath, targetSubfolder, replacements);
 
@@ -329,6 +524,8 @@ public partial class MainViewModel : ObservableObject
             item.ResetToDefaultCommand.Execute(null);
         }
         RecalculateDependencies();
+        RecalculateVs30();
+        RecalculateDrillingWellsSummary();
         SetStatus("Tüm değişkenler varsayılan değerlerine sıfırlandı.", "Info");
     }
 
