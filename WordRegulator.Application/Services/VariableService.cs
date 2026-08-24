@@ -190,4 +190,41 @@ public class VariableService : IVariableService
 
         return (totalDrillingStr, groundwaterStr);
     }
+
+    public IDictionary<string, string> GenerateDrillingWellReplacements(IEnumerable<DrillingWellItem> wells)
+    {
+        var replacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var wellList = wells.ToList();
+
+        for (int i = 0; i < wellList.Count; i++)
+        {
+            var w = wellList[i];
+            int idx = i + 1;
+            replacements[$"SK{idx}_NAME"] = w.WellName;
+            replacements[$"SK{idx}_LAT"] = w.Latitude;
+            replacements[$"SK{idx}_LON"] = w.Longitude;
+            replacements[$"SK{idx}_GROUNDKOT"] = w.GroundKot;
+            replacements[$"SK{idx}_BOTTOMKOT"] = w.BottomKot;
+            replacements[$"SK{idx}_DEPTH"] = $"{w.DepthMeters:F2}";
+            replacements[$"SK{idx}_WATER"] = w.GroundwaterStatus;
+            replacements[$"SK{idx}_RESULT"] = w.GroundwaterStatus;
+            replacements[$"SK{idx}_COLLAPSED"] = w.IsCollapsed ? "Evet" : "Hayır";
+            replacements[$"SK{idx}_IS_COLLAPSED"] = w.IsCollapsed ? "Evet" : "Hayır";
+            replacements[$"SK{idx}_START"] = w.StartDate;
+            replacements[$"SK{idx}_FINISH"] = w.FinishDate;
+
+            if (w.Measurements.Count > 0)
+            {
+                replacements[$"SK{idx}_MEASURE_DATE"] = w.Measurements[0].MeasurementDate;
+                replacements[$"SK{idx}_WATER_DEPTH"] = w.Measurements[0].WaterDepth;
+            }
+            else
+            {
+                replacements[$"SK{idx}_MEASURE_DATE"] = string.Empty;
+                replacements[$"SK{idx}_WATER_DEPTH"] = w.IsCollapsed ? "Kuyu çökmüş" : string.Empty;
+            }
+        }
+
+        return replacements;
+    }
 }

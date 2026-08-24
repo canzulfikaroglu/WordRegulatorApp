@@ -9,6 +9,8 @@ public class DrillingWellItem
     public string BottomKot { get; set; } = string.Empty; // Sondaj Dip Kotu
     public double DepthMeters { get; set; }               // Derinlik (m)
     public string GroundwaterStatus { get; set; } = "Yeraltı suyuna rastlanmamıştır."; // Kuyu su durumu
+    public bool IsCollapsed { get; set; }                  // Kuyu çökmesi var mı?
     public string StartDate { get; set; } = string.Empty; // Başlangıç Tarihi
     public string FinishDate { get; set; } = string.Empty;// Bitiş Tarihi
+    public List<GroundwaterMeasurementItem> Measurements { get; set; } = new(); // Yeraltı suyu ölçüm listesi
 }

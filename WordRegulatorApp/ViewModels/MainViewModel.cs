@@ -209,8 +209,14 @@ public partial class MainViewModel : ObservableObject
             BottomKot = w.BottomKot,
             DepthMeters = w.DepthMeters,
             GroundwaterStatus = w.GroundwaterStatus,
+            IsCollapsed = w.IsCollapsed,
             StartDate = w.StartDate,
-            FinishDate = w.FinishDate
+            FinishDate = w.FinishDate,
+            Measurements = w.Measurements.Select(m => new GroundwaterMeasurementItem
+            {
+                MeasurementDate = m.MeasurementDate,
+                WaterDepth = m.WaterDepth
+            }).ToList()
         });
 
         var (totalDrilling, groundwaterLevel) = _variableService.SummarizeDrillingWells(domainWells);
@@ -243,7 +249,17 @@ public partial class MainViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(firstWell.StartDate))
             {
                 var dateVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "DRİLLİNGDATE", StringComparison.OrdinalIgnoreCase));
-                if (dateVar != null) dateVar.Value = $"{firstWell.StartDate} - {firstWell.FinishDate}";
+                if (dateVar != null)
+                {
+                    if (string.Equals(firstWell.StartDate, firstWell.FinishDate, StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(firstWell.FinishDate))
+                    {
+                        dateVar.Value = firstWell.StartDate;
+                    }
+                    else
+                    {
+                        dateVar.Value = $"{firstWell.StartDate} - {firstWell.FinishDate}";
+                    }
+                }
             }
         }
     }
@@ -478,22 +494,75 @@ public partial class MainViewModel : ObservableObject
 
             var replacements = Variables.ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
 
-            for (int i = 0; i < DrillingWells.Count; i++)
+            var domainWells = DrillingWells.Select(w => new DrillingWellItem
             {
-                var w = DrillingWells[i];
-                int idx = i + 1;
-                replacements[$"SK{idx}_NAME"] = w.WellName;
-                replacements[$"SK{idx}_LAT"] = w.Latitude;
-                replacements[$"SK{idx}_LON"] = w.Longitude;
-                replacements[$"SK{idx}_GROUNDKOT"] = w.GroundKot;
-                replacements[$"SK{idx}_BOTTOMKOT"] = w.BottomKot;
-                replacements[$"SK{idx}_DEPTH"] = $"{w.DepthMeters:F2}m";
-                replacements[$"SK{idx}_WATER"] = w.GroundwaterStatus;
-                replacements[$"SK{idx}_START"] = w.StartDate;
-                replacements[$"SK{idx}_FINISH"] = w.FinishDate;
+                WellName = w.WellName,
+                Latitude = w.Latitude,
+                Longitude = w.Longitude,
+                GroundKot = w.GroundKot,
+                BottomKot = w.BottomKot,
+                DepthMeters = w.DepthMeters,
+                GroundwaterStatus = w.GroundwaterStatus,
+                IsCollapsed = w.IsCollapsed,
+                StartDate = w.StartDate,
+                FinishDate = w.FinishDate,
+                Measurements = w.Measurements.Select(m => new GroundwaterMeasurementItem
+                {
+                    MeasurementDate = m.MeasurementDate,
+                    WaterDepth = m.WaterDepth
+                }).ToList()
+            }).ToList();
+
+            var wellReplacements = _variableService.GenerateDrillingWellReplacements(domainWells);
+            foreach (var kvp in wellReplacements)
+            {
+                replacements[kvp.Key] = kvp.Value;
             }
 
-            var batchResult = await _documentProcessor.ProcessTemplateDirectoryAsync(TemplateDirectoryPath, targetSubfolder, replacements);
+            // Türkçe / İngilizce ve Harf Varyasyonları İçin Takma Adlar (Aliases)
+            void AddAlias(string aliasKey, string originalKey)
+            {
+                if (replacements.TryGetValue(originalKey, out var val) && !replacements.ContainsKey(aliasKey))
+                {
+                    replacements[aliasKey] = val;
+                }
+            }
+
+            // DRILLER / DRILLERPERSON / DRİLLERPERSON
+            AddAlias("DRILLERPERSON", "DRILLER");
+            AddAlias("DRİLLERPERSON", "DRILLER");
+            AddAlias("DRILLER_PERSON", "DRILLER");
+            AddAlias("SONDOR", "DRILLER");
+            AddAlias("SONDÖR", "DRILLER");
+
+            // TOTALDRILLING / TOTALDRİLLİNG / TOTAL_DRILLING / TOPLAMSONDAJ
+            AddAlias("TOTALDRILLING", "TOTALDRİLLİNG");
+            AddAlias("TOTAL_DRILLING", "TOTALDRİLLİNG");
+            AddAlias("TOPLAMSONDAJ", "TOTALDRİLLİNG");
+            AddAlias("TOPLAM_SONDAJ", "TOTALDRİLLİNG");
+
+            // AREAOFSTUDY / AREA_OF_STUDY / INCELEMEALANI
+            AddAlias("AREA_OF_STUDY", "AREAOFSTUDY");
+            AddAlias("INCELEMEALANI", "AREAOFSTUDY");
+            AddAlias("İNCELEMEALANI", "AREAOFSTUDY");
+            AddAlias("INCELEME_ALANI", "AREAOFSTUDY");
+
+            // LATITUDE / LONGITUDE
+            AddAlias("LATITUDE", "LATİTUDE");
+            AddAlias("LONGITUDE", "LONGİTUDE");
+            AddAlias("ENLEM", "LATİTUDE");
+            AddAlias("BOYLAM", "LONGİTUDE");
+
+            // PROVINCE / DISTRICT / NEIGHBOURHOOD
+            AddAlias("PROVINCE", "PROVİNCE");
+            AddAlias("DISTRICT", "DİSTRİCT");
+            AddAlias("NEIGHBOURHOOD", "NEİGHBOURHOOD");
+
+            // SHEETISLANDPARCEL
+            AddAlias("SHEETISLANDPARCEL", "SHEETİSLANDPARCEL");
+            AddAlias("PAFTAADAPARSEL", "SHEETİSLANDPARCEL");
+
+            var batchResult = await _documentProcessor.ProcessTemplateDirectoryAsync(TemplateDirectoryPath, targetSubfolder, replacements, domainWells);
 
             if (batchResult.Success)
             {

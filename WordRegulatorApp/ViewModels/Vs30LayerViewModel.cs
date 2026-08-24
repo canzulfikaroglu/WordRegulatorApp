@@ -1,3 +1,4 @@
+
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace WordRegulatorApp.ViewModels;

@@ -349,11 +349,54 @@
                                                 </StackPanel>
                                             </Grid>
 
-                                            <!-- Yeraltı Suyu Durumu -->
-                                            <StackPanel>
-                                                <TextBlock Text="Kuyu Yeraltı Suyu Durumu:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                                <TextBox Text="{Binding GroundwaterStatus, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
-                                            </StackPanel>
+                                            <!-- Sonuç & Kuyu Çökmesi CheckBox -->
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="Açıklama / Sonuç:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                <CheckBox Grid.Column="1" Content="Kuyu Çökmesi" IsChecked="{Binding IsCollapsed, UpdateSourceTrigger=PropertyChanged}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" VerticalAlignment="Center" Cursor="Hand"/>
+                                            </Grid>
+                                            <TextBox Text="{Binding GroundwaterStatus, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}" Margin="0,0,0,8"/>
+
+                                            <!-- Yeraltı Suyu Ölçümleri -->
+                                            <Border Background="#20202B" CornerRadius="6" Padding="8,4" Margin="0,2,0,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="💧 Yeraltı Suyu Ölçümleri" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}" VerticalAlignment="Center"/>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="Ölçüm Sayısı:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                        <ComboBox ItemsSource="{Binding MeasurementCountOptions}" SelectedItem="{Binding SelectedMeasurementCount, UpdateSourceTrigger=PropertyChanged}" Width="50" FontSize="11" Height="22"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+
+                                            <!-- Ölçüm Listesi (Dinamik) -->
+                                            <ItemsControl ItemsSource="{Binding Measurements}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type vm:GroundwaterMeasurementViewModel}">
+                                                        <Grid Margin="0,0,0,6">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="8"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel Grid.Column="0">
+                                                                <TextBlock Text="{Binding Index, StringFormat='Ölçüm {0} Tarihi:'}" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                                <TextBox Text="{Binding MeasurementDate, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                            </StackPanel>
+                                                            <StackPanel Grid.Column="2">
+                                                                <TextBlock Text="Yeraltı Suyu (m.):" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                                <TextBox Text="{Binding WaterDepth, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsEditable}" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
