@@ -164,7 +164,7 @@
         <!-- 3. MAIN VARIABLES & CALCULATORS SCROLLABLE CONTAINER -->
         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,0,16">
             <StackPanel>
-                <!-- ================= ⚡ VS30 JEOFİZİK HESAPLAMA PANENİ ================= -->
+                <!-- ================= ⚡ VS30 JEOFİZİK HESAPLAMA PANELİ ================= -->
                 <Border Background="{StaticResource PanelDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,16" BorderBrush="{StaticResource AccentPurpleBrush}" BorderThickness="1">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -172,8 +172,8 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Panel Başlığı & Hafriyat Derinliği (Df) -->
-                        <Grid Grid.Row="0" Margin="0,0,0,12">
+                        <!-- Panel Başlığı & Üst Kontroller -->
+                        <Grid Grid.Row="0" Margin="0,0,0,14">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -186,56 +186,124 @@
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="VS30 Zemin Kayma Dalga Hızı Hesaplayıcı [Vs30 = 30 / Σ(hi / Vsi)]" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                    <TextBlock Text="Df (Hafriyat Derinliği) ve tabaka aralıklarına göre VS30 formülü canlı hesaplanır." FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="Her serim için kot ve tabaka değerlerine göre VS30 formülü ve ara adımları canlı hesaplanır." FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
                                 </StackPanel>
                             </StackPanel>
 
-                            <!-- Df (Hafriyat Derinliği) Girdisi -->
+                            <!-- Temel Üst Kotu Girişi -->
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
-                                <TextBlock Text="Df (Hafriyat/Temel Derinliği m):" FontSize="12" Foreground="{StaticResource AccentPurpleBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBox Text="{Binding DfInput, UpdateSourceTrigger=PropertyChanged}" Width="70" Style="{StaticResource DarkTextBoxStyle}"/>
+                                <TextBlock Text="Temel Üst Kotu:" FontSize="12" Foreground="{StaticResource AccentPurpleBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Text="{Binding BaseTopLevelInput, UpdateSourceTrigger=PropertyChanged}" Width="135" Style="{StaticResource DarkTextBoxStyle}" ToolTip="Temel Üst Kotu (örn: -3,24(35,57) veya 35,57). Alttaki {{FROMTHEBASETOPLEVEL}} ile senkronizedir."/>
                             </StackPanel>
 
-                            <!-- Tabaka Sayısı Seçeneği -->
+                            <!-- Serim Sayısı Seçeneği -->
                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="Tabaka Sayısı:" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <ComboBox ItemsSource="{Binding Vs30LayerCountOptions}" SelectedItem="{Binding SelectedVs30LayerCount}" Width="75" Height="32" Padding="8,4" Background="#13131A" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Serim Sayısı:" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox ItemsSource="{Binding Vs30SeriesCountOptions}" SelectedItem="{Binding SelectedVs30SeriesCount}" Width="65" Height="32" Padding="8,4" Background="#13131A" Foreground="{StaticResource AccentPurpleBrush}" FontWeight="Bold"/>
                             </StackPanel>
                         </Grid>
 
-                        <!-- Tabaka İntputları -->
-                        <ItemsControl Grid.Row="1" ItemsSource="{Binding Vs30Layers}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel Orientation="Horizontal"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
+                        <!-- Serim Listesi (Her Serim Kendi Kot ve Tabaka Tablosunu İçerir) -->
+                        <ItemsControl Grid.Row="1" ItemsSource="{Binding Vs30Series}">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type vm:Vs30LayerViewModel}">
-                                    <Border Width="235" Margin="0,0,10,8" Background="#1A1A24" CornerRadius="8" Padding="10" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                                <DataTemplate DataType="{x:Type vm:Vs30SeriesViewModel}">
+                                    <Border Margin="0,0,0,12" Background="#14141E" CornerRadius="10" Padding="14" BorderBrush="{StaticResource AccentPurpleBrush}" BorderThickness="1">
                                         <StackPanel>
-                                            <TextBlock Text="{Binding LayerName}" FontWeight="Bold" FontSize="12" Foreground="{StaticResource AccentPurpleBrush}" Margin="0,0,0,6"/>
-                                            <Grid>
+                                            <!-- Serim Üst Başlık & Kot Girdileri & Canlı Sonuçlar -->
+                                            <Grid Margin="0,0,0,12">
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="4"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="4"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="16"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="16"/>
+                                                    <ColumnDefinition Width="Auto"/>
                                                     <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0">
-                                                    <TextBlock Text="Alt (m):" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                                    <TextBox Text="{Binding StartDepthInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
+
+                                                <!-- Serim Başlığı & Tabaka Seçimi -->
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Border Background="{StaticResource AccentPurpleBrush}" CornerRadius="6" Padding="10,6" Margin="0,0,10,0">
+                                                        <TextBlock Text="{Binding SeriesName}" FontWeight="Bold" FontSize="12" Foreground="#FFFFFF"/>
+                                                    </Border>
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="Tabaka:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                        <ComboBox ItemsSource="{Binding LayerCountOptions}" SelectedItem="{Binding SelectedLayerCount}" Width="55" Height="28" Padding="6,2" Background="#13131A" Foreground="{StaticResource AccentPurpleBrush}" FontWeight="Bold"/>
+                                                    </StackPanel>
                                                 </StackPanel>
-                                                <StackPanel Grid.Column="2">
-                                                    <TextBlock Text="Üst (m):" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                                    <TextBox Text="{Binding EndDepthInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
+
+                                                <!-- Kot Başlangıç & Kot Bitiş -->
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
+                                                        <TextBlock Text="Kot Başlangıç:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                        <TextBox Text="{Binding KotStartInput, UpdateSourceTrigger=PropertyChanged}" Width="75" Height="28" Padding="6,4" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="Kot Bitiş:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                        <TextBox Text="{Binding KotEndInput, UpdateSourceTrigger=PropertyChanged}" Width="75" Height="28" Padding="6,4" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                    </StackPanel>
                                                 </StackPanel>
-                                                <StackPanel Grid.Column="4">
-                                                    <TextBlock Text="Vs (m/s):" FontSize="10" Foreground="{StaticResource AccentCyanBrush}" FontWeight="Bold"/>
-                                                    <TextBox Text="{Binding VelocityInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
+
+                                                <!-- Canlı Sonuç Badgeleri: Df, VS30 & A -->
+                                                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Border Background="#1E293B" CornerRadius="6" Padding="10,5" Margin="0,0,8,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="Df: " FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                            <TextBlock Text="{Binding DfDisplay}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <Border Background="#2E1065" CornerRadius="6" Padding="10,5" Margin="0,0,8,0" BorderBrush="{StaticResource AccentPurpleBrush}" BorderThickness="1">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="VS30: " FontSize="11" Foreground="#C4B5FD"/>
+                                                            <TextBlock Text="{Binding Vs30Result}" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <Border Background="#1E1B4B" CornerRadius="6" Padding="10,5" BorderBrush="{StaticResource AccentCyanBrush}" BorderThickness="1">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="A: " FontSize="11" Foreground="#A5F3FC"/>
+                                                            <TextBlock Text="{Binding ADisplay}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
+                                                        </StackPanel>
+                                                    </Border>
                                                 </StackPanel>
                                             </Grid>
+
+                                            <!-- Tabaka Tablosu (Bu Serim İçin) -->
+                                            <ItemsControl ItemsSource="{Binding Layers}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel Orientation="Horizontal"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type vm:Vs30LayerViewModel}">
+                                                        <Border Width="225" Margin="0,0,10,6" Background="#1E1E2C" CornerRadius="8" Padding="10,8" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding LayerName}" FontWeight="Bold" FontSize="11" Foreground="{StaticResource AccentPurpleBrush}" Margin="0,0,0,5"/>
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="4"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="4"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <StackPanel Grid.Column="0">
+                                                                        <TextBlock Text="Alt (m):" FontSize="9" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                                        <TextBox Text="{Binding StartDepthInput, UpdateSourceTrigger=PropertyChanged}" Height="26" Padding="4,2" FontSize="11" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                                    </StackPanel>
+                                                                    <StackPanel Grid.Column="2">
+                                                                        <TextBlock Text="Üst (m):" FontSize="9" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                                        <TextBox Text="{Binding EndDepthInput, UpdateSourceTrigger=PropertyChanged}" Height="26" Padding="4,2" FontSize="11" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                                    </StackPanel>
+                                                                    <StackPanel Grid.Column="4">
+                                                                        <TextBlock Text="Vs (m/s):" FontSize="9" Foreground="{StaticResource AccentCyanBrush}" FontWeight="Bold"/>
+                                                                        <TextBox Text="{Binding VelocityInput, UpdateSourceTrigger=PropertyChanged}" Height="26" Padding="4,2" FontSize="11" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                                    </StackPanel>
+                                                                </Grid>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
@@ -358,7 +426,22 @@
                                                 <TextBlock Grid.Column="0" Text="Açıklama / Sonuç:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
                                                 <CheckBox Grid.Column="1" Content="Kuyu Çökmesi" IsChecked="{Binding IsCollapsed, UpdateSourceTrigger=PropertyChanged}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" VerticalAlignment="Center" Cursor="Hand"/>
                                             </Grid>
-                                            <TextBox Text="{Binding GroundwaterStatus, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}" Margin="0,0,0,8"/>
+                                            <TextBox Text="{Binding GroundwaterStatus, UpdateSourceTrigger=PropertyChanged}" 
+                                                     AcceptsReturn="True"
+                                                     TextWrapping="Wrap"
+                                                     VerticalScrollBarVisibility="Auto"
+                                                     Margin="0,0,0,8">
+                                                <TextBox.Style>
+                                                    <Style TargetType="TextBox" BasedOn="{StaticResource DarkTextBoxStyle}">
+                                                        <Setter Property="MinHeight" Value="34"/>
+                                                        <Style.Triggers>
+                                                            <Trigger Property="IsFocused" Value="True">
+                                                                <Setter Property="MinHeight" Value="80"/>
+                                                            </Trigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBox.Style>
+                                            </TextBox>
 
                                             <!-- Yeraltı Suyu Ölçümleri -->
                                             <Border Background="#20202B" CornerRadius="6" Padding="8,4" Margin="0,2,0,6">

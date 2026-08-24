@@ -16,6 +16,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         string outputPath,
         IDictionary<string, string> variableReplacements,
         IEnumerable<DrillingWellItem>? wells = null,
+        IEnumerable<Vs30SeriesItem>? vs30Series = null,
         CancellationToken cancellationToken = default)
     {
         var result = new DocumentProcessResult();
@@ -52,6 +53,12 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                     {
                         replacementCount += ProcessDynamicWellTables(mainPart.Document.Body, wells, replacedKeys);
                         replacementCount += ProcessDynamicWellParagraphs(mainPart.Document.Body, wells, replacedKeys);
+                    }
+
+                    if (vs30Series != null)
+                    {
+                        replacementCount += ProcessDynamicVs30Tables(mainPart.Document.Body, vs30Series, replacedKeys);
+                        replacementCount += ProcessDynamicVs30Paragraphs(mainPart.Document.Body, vs30Series, replacedKeys);
                     }
 
                     replacementCount += ProcessElementContainers(mainPart.Document.Body, variableReplacements, replacedKeys);
@@ -96,6 +103,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         string outputDirectoryPath,
         IDictionary<string, string> variableReplacements,
         IEnumerable<DrillingWellItem>? wells = null,
+        IEnumerable<Vs30SeriesItem>? vs30Series = null,
         CancellationToken cancellationToken = default)
     {
         var batchResult = new BatchProcessResult();
@@ -130,7 +138,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 var fileNameNoExt = Path.GetFileNameWithoutExtension(templateFile);
                 var targetOutputPath = Path.Combine(outputDirectoryPath, $"{fileNameNoExt}_Düzenlenmiş.docx");
 
-                var fileResult = await ProcessDocumentAsync(templateFile, targetOutputPath, variableReplacements, wells, cancellationToken);
+                var fileResult = await ProcessDocumentAsync(templateFile, targetOutputPath, variableReplacements, wells, vs30Series, cancellationToken);
                 if (fileResult.Success)
                 {
                     batchResult.ProcessedFileCount++;
@@ -287,6 +295,231 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         }
 
         return totalReplacements;
+    }
+
+    private int ProcessDynamicVs30Tables(
+        Body body,
+        IEnumerable<Vs30SeriesItem> vs30Series,
+        HashSet<string> replacedKeys)
+    {
+        var seriesList = vs30Series.ToList();
+        if (seriesList.Count == 0) return 0;
+        int totalReplacements = 0;
+
+        var tables = body.Descendants<Table>().ToList();
+        foreach (var table in tables)
+        {
+            var rows = table.Elements<TableRow>().ToList();
+            if (rows.Count == 0) continue;
+
+            // Tabloda dinamik VS30/Serim/Tabaka etiketleri var mı?
+            bool hasSeriesTags = rows.Any(r => r.InnerText.Contains("{{SERIES_") || r.InnerText.Contains("{{SERIM_") ||
+                                                r.InnerText.Contains("{{LAYER_") || r.InnerText.Contains("{{TABAKA_"));
+            if (!hasSeriesTags) continue;
+
+            // Dinamik serim satırlarını ve tabaka satırlarını tespit et
+            var dynamicRows = rows.Where(r => r.InnerText.Contains("{{SERIES_") || r.InnerText.Contains("{{SERIM_") ||
+                                              r.InnerText.Contains("{{LAYER_") || r.InnerText.Contains("{{TABAKA_")).ToList();
+
+            if (dynamicRows.Count == 0) continue;
+
+            var anchor = dynamicRows[0];
+
+            for (int i = 0; i < seriesList.Count; i++)
+            {
+                var s = seriesList[i];
+
+                foreach (var templateRow in dynamicRows)
+                {
+                    string rText = templateRow.InnerText;
+                    bool isLayerRow = rText.Contains("{{LAYER_") || rText.Contains("{{TABAKA_");
+
+                    if (isLayerRow)
+                    {
+                        // Her tabaka için 1 satır çoğaltılır
+                        for (int j = 0; j < s.Layers.Count; j++)
+                        {
+                            var l = s.Layers[j];
+                            var newRow = (TableRow)templateRow.CloneNode(true);
+                            var replacements = GetSeriesReplacementsDictionary(s, l);
+                            totalReplacements += ProcessElementContainers(newRow, replacements, replacedKeys);
+                            table.InsertBefore(newRow, anchor);
+                        }
+                    }
+                    else
+                    {
+                        // Serim başlık satırı: Her serim için 1 kez çoğaltılır
+                        var newRow = (TableRow)templateRow.CloneNode(true);
+                        var replacements = GetSeriesReplacementsDictionary(s);
+                        totalReplacements += ProcessElementContainers(newRow, replacements, replacedKeys);
+                        table.InsertBefore(newRow, anchor);
+                    }
+                }
+            }
+
+            // Orijinal şablon satırlarını temizle
+            foreach (var templateRow in dynamicRows)
+            {
+                templateRow.Remove();
+            }
+        }
+
+        return totalReplacements;
+    }
+
+    private int ProcessDynamicVs30Paragraphs(
+        Body body,
+        IEnumerable<Vs30SeriesItem> vs30Series,
+        HashSet<string> replacedKeys)
+    {
+        var seriesList = vs30Series.ToList();
+        if (seriesList.Count == 0) return 0;
+        int totalReplacements = 0;
+
+        var allParagraphs = body.Descendants<Paragraph>()
+            .Where(p => !p.Ancestors<Table>().Any())
+            .ToList();
+
+        var blocks = new List<List<Paragraph>>();
+        List<Paragraph>? currentBlock = null;
+
+        foreach (var p in allParagraphs)
+        {
+            var pText = p.InnerText;
+            bool isDynamic = !string.IsNullOrEmpty(pText) &&
+                             (pText.Contains("{{SERIES_") || pText.Contains("{{SERIM_"));
+
+            if (isDynamic)
+            {
+                if (currentBlock == null)
+                {
+                    currentBlock = new List<Paragraph>();
+                    blocks.Add(currentBlock);
+                }
+                currentBlock.Add(p);
+            }
+            else
+            {
+                currentBlock = null;
+            }
+        }
+
+        foreach (var block in blocks)
+        {
+            if (block.Count == 0) continue;
+            var anchor = block[0];
+            var parent = anchor.Parent;
+            if (parent == null) continue;
+
+            for (int i = 0; i < seriesList.Count; i++)
+            {
+                var s = seriesList[i];
+                var seriesReplacements = GetSeriesReplacementsDictionary(s);
+
+                foreach (var pInBlock in block)
+                {
+                    var newP = (Paragraph)pInBlock.CloneNode(true);
+                    totalReplacements += ReplaceInParagraph(newP, seriesReplacements, replacedKeys);
+                    parent.InsertBefore(newP, anchor);
+                }
+            }
+
+            foreach (var pInBlock in block)
+            {
+                pInBlock.Remove();
+            }
+        }
+
+        return totalReplacements;
+    }
+
+    private static readonly System.Globalization.CultureInfo TrCulture = new System.Globalization.CultureInfo("tr-TR");
+
+    private Dictionary<string, string> GetSeriesReplacementsDictionary(Vs30SeriesItem s, Vs30LayerItem? layer = null)
+    {
+        string vs30Digits = new string(s.Vs30Result.Where(c => char.IsDigit(c) || c == '.' || c == ',').ToArray()).Replace(',', '.');
+        string vs30CleanNum = double.TryParse(vs30Digits, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedVs)
+            ? Math.Round(parsedVs).ToString(TrCulture)
+            : s.Vs30Result;
+
+        string aStr = s.AValue.ToString("F2", TrCulture);
+
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["SERIES_NO"] = s.SeriesNumber.ToString(),
+            ["SERIM_NO"] = s.SeriesNumber.ToString(),
+            ["SERIM_NUMARASI"] = s.SeriesNumber.ToString(),
+
+            ["SERIES_NAME"] = s.SeriesName,
+            ["SERIM_ADI"] = s.SeriesName,
+            ["SERIM_ISMI"] = s.SeriesName,
+
+            ["SERIES_KOTSTART"] = s.KotStart.ToString("F2", TrCulture),
+            ["SERIM_KOT_BASLANGIC"] = s.KotStart.ToString("F2", TrCulture),
+            ["SERIM_KOTSTART"] = s.KotStart.ToString("F2", TrCulture),
+
+            ["SERIES_KOTEND"] = s.KotEnd.ToString("F2", TrCulture),
+            ["SERIM_KOT_BITIS"] = s.KotEnd.ToString("F2", TrCulture),
+            ["SERIM_KOTEND"] = s.KotEnd.ToString("F2", TrCulture),
+
+            ["SERIES_KOTAVG"] = s.KotAverage.ToString("F2", TrCulture),
+            ["SERIM_KOT_ORTALAMA"] = s.KotAverage.ToString("F2", TrCulture),
+            ["SERIM_KOTAVG"] = s.KotAverage.ToString("F2", TrCulture),
+
+            ["SERIES_DF"] = s.Df.ToString("F2", TrCulture),
+            ["SERIM_DF"] = s.Df.ToString("F2", TrCulture),
+            ["SERIES_DF_M"] = s.Df.ToString("F2", TrCulture),
+
+            ["SERIES_H1"] = s.H1.ToString("F2", TrCulture),
+            ["SERIM_H1"] = s.H1.ToString("F2", TrCulture),
+
+            ["SERIES_FORMULA"] = s.Formula,
+            ["SERIM_FORMUL"] = s.Formula,
+            ["SERIES_FORMULA_FULL"] = s.FormulaFull,
+            ["SERIM_FORMUL_TAM"] = s.FormulaFull,
+
+            ["SERIES_RESULT"] = s.Vs30Result,
+            ["SERIM_SONUC"] = s.Vs30Result,
+            ["SERIES_VS30"] = s.Vs30Result,
+            ["SERIM_VS30"] = s.Vs30Result,
+            ["SERIES_VS30_NUM"] = vs30CleanNum,
+            ["SERIES_VS30_VAL"] = vs30CleanNum,
+
+            ["SERIES_A"] = aStr,
+            ["SERIM_A"] = aStr,
+            ["A"] = aStr,
+            ["SERIES_A_FORMULA"] = $"68*({vs30CleanNum})-0,6 = {aStr}",
+            ["SERIES_A_FULL"] = $"A{s.SeriesNumber} = 68*({vs30CleanNum})-0,6 = {aStr}"
+        };
+
+        if (layer != null)
+        {
+            string startStr = layer.StartDepth.ToString("F2", TrCulture);
+            string endStr = layer.EndDepth.ToString("F2", TrCulture);
+            string vsStr = layer.Velocity.ToString("F0", TrCulture);
+
+            dict["LAYER_NO"] = layer.LayerNumber.ToString();
+            dict["TABAKA_NO"] = layer.LayerNumber.ToString();
+
+            dict["LAYER_START"] = startStr;
+            dict["TABAKA_BASLANGIC"] = startStr;
+            dict["TABAKA_ALT"] = startStr;
+
+            dict["LAYER_END"] = endStr;
+            dict["TABAKA_BITIS"] = endStr;
+            dict["TABAKA_UST"] = endStr;
+
+            dict["LAYER_RANGE"] = $"{startStr} – {endStr}";
+            dict["TABAKA_ARALIK"] = $"{startStr} – {endStr}";
+            dict["TABAKA_DERINLIK"] = $"{startStr} – {endStr}";
+
+            dict["LAYER_VS"] = vsStr;
+            dict["TABAKA_VS"] = vsStr;
+            dict["LAYER_VELOCITY"] = vsStr;
+            dict["TABAKA_HIZ"] = vsStr;
+        }
+
+        return dict;
     }
 
     private Dictionary<string, string> GetWellReplacementsDictionary(DrillingWellItem w, GroundwaterMeasurementItem? m = null)

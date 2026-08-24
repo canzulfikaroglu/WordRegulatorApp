@@ -39,7 +39,7 @@ public class VariableService : IVariableService
             // ================= 3. Rapor =================
             new("LATİTUDE", "Enlem", "Enlem koordinatı", VariableCategory.Rapor, VariableType.Independent, "", order: 20),
             new("LONGİTUDE", "Boylam", "Boylam koordinatı", VariableCategory.Rapor, VariableType.Independent, "", order: 21),
-            new("DRİLLİNGWELLCOUNT", "Sondaj Kuyusu Sayısı", "Sondaj kuyusu sayısı", VariableCategory.Rapor, VariableType.Independent, "3", order: 22),
+            new("DRİLLİNGWELLCOUNT", "Sondaj Kuyusu Sayısı", "Sondaj kuyusu sayısı (Sondaj kuyuları panelinden otomatik)", VariableCategory.Rapor, VariableType.Dependent, "3", order: 22),
             new("TOTALDRİLLİNG", "Toplam Sondaj", "Toplam sondaj metrajı (Otomatik)", VariableCategory.Rapor, VariableType.Dependent, "45.00m", order: 23),
             new("MAXKOT", "En Yüksek Kot", "En yüksek kot", VariableCategory.Rapor, VariableType.Independent, "39.50", order: 24),
             new("MİNKOT", "En Düşük Kot", "En düşük kot", VariableCategory.Rapor, VariableType.Independent, "36.20", order: 25),
@@ -179,13 +179,42 @@ public class VariableService : IVariableService
         double sumDepth = wellList.Sum(w => w.DepthMeters);
         string totalDrillingStr = $"{sumDepth:F2}m";
 
-        var statusList = wellList
-            .Where(w => !string.IsNullOrWhiteSpace(w.GroundwaterStatus))
-            .Select(w => $"{w.WellName}: {w.GroundwaterStatus}")
-            .ToList();
+        var statusParts = new List<string>();
 
-        string groundwaterStr = statusList.Count > 0
-            ? string.Join(" | ", statusList)
+        foreach (var well in wellList)
+        {
+            string wellEntry;
+            if (well.IsCollapsed)
+            {
+                wellEntry = $"{well.WellName}: Kuyu çökmüş";
+            }
+            else
+            {
+                // Son ölçümün değerini al (en son oluşturulan ölçüm = en son su seviyesi)
+                var lastMeasurement = well.Measurements.LastOrDefault();
+                string lastDepthRaw = lastMeasurement?.WaterDepth ?? string.Empty;
+                var normalizedLast = lastDepthRaw.Replace(',', '.');
+                bool isNumeric = double.TryParse(normalizedLast, NumberStyles.Any, CultureInfo.InvariantCulture, out var lastDepthVal);
+
+                if (isNumeric)
+                {
+                    string formattedDepth = lastDepthVal.ToString("F2", TrCulture);
+                    wellEntry = $"{well.WellName}: {formattedDepth} m.";
+                }
+                else if (!string.IsNullOrWhiteSpace(well.GroundwaterStatus))
+                {
+                    wellEntry = $"{well.WellName}: {well.GroundwaterStatus}";
+                }
+                else
+                {
+                    wellEntry = $"{well.WellName}: Yeraltı suyuna rastlanmamıştır";
+                }
+            }
+            statusParts.Add(wellEntry);
+        }
+
+        string groundwaterStr = statusParts.Count > 0
+            ? string.Join(", ", statusParts)
             : "Yeraltı suyuna rastlanmamıştır.";
 
         return (totalDrillingStr, groundwaterStr);
@@ -215,8 +244,18 @@ public class VariableService : IVariableService
 
             if (w.Measurements.Count > 0)
             {
-                replacements[$"SK{idx}_MEASURE_DATE"] = w.Measurements[0].MeasurementDate;
-                replacements[$"SK{idx}_WATER_DEPTH"] = w.Measurements[0].WaterDepth;
+                // Son ölçüm tarih ve su değerini kullan
+                var lastM = w.Measurements.Last();
+                replacements[$"SK{idx}_MEASURE_DATE"] = lastM.MeasurementDate;
+                replacements[$"SK{idx}_WATER_DEPTH"] = lastM.WaterDepth;
+
+                // Aynı zamanda tüm ölçümleri ayrı ayrı ekle: SK1_MEASURE1_DATE, SK1_MEASURE1_DEPTH vb.
+                for (int m = 0; m < w.Measurements.Count; m++)
+                {
+                    int mIdx = m + 1;
+                    replacements[$"SK{idx}_MEASURE{mIdx}_DATE"] = w.Measurements[m].MeasurementDate;
+                    replacements[$"SK{idx}_MEASURE{mIdx}_DEPTH"] = w.Measurements[m].WaterDepth;
+                }
             }
             else
             {
@@ -226,5 +265,64 @@ public class VariableService : IVariableService
         }
 
         return replacements;
+    }
+
+    public IDictionary<string, string> GenerateVs30Replacements(IEnumerable<Vs30LayerItem> layers, double df)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var layerList = layers.OrderBy(l => l.LayerNumber).ToList();
+
+        // DF değişkeni
+        result["VS30_DF"] = df.ToString("F2", TrCulture);
+
+        double sumThickness = 0;
+        double sumTime = 0;
+        var formulaParts = new List<string>();
+
+        for (int i = 0; i < layerList.Count; i++)
+        {
+            var layer = layerList[i];
+            int num = i + 1;
+            double h_i;
+
+            if (i == 0)
+                h_i = Math.Max(0, layer.EndDepth - df);
+            else if (i < layerList.Count - 1)
+                h_i = Math.Max(0, layer.EndDepth - layerList[i - 1].EndDepth);
+            else
+                h_i = Math.Max(0, 30.0 - sumThickness);
+
+            sumThickness += h_i;
+            if (layer.Velocity > 0)
+                sumTime += (h_i / layer.Velocity);
+
+            // Her tabaka için değişkenler
+            string startStr = layer.StartDepth.ToString("F2", TrCulture);
+            string endStr = layer.EndDepth.ToString("F2", TrCulture);
+            string vsStr = layer.Velocity.ToString("F0", TrCulture);
+            string hStr = h_i.ToString("F2", TrCulture);
+
+            result[$"VS30_START{num}"] = startStr;
+            result[$"VS30_END{num}"] = endStr;
+            result[$"VS30_RANGE{num}"] = $"{startStr} - {endStr}";
+            result[$"VS30_H{num}"] = hStr;
+            result[$"VS30_VS{num}"] = vsStr;
+
+            // Formül parçası: (0,28/157)
+            formulaParts.Add($"({hStr}/{vsStr})");
+        }
+
+        // Formül string'i: 30/[(0,28/157)+(6,40/1008)+...]
+        string formulaBody = string.Join("+", formulaParts);
+        result["VS30_FORMULA"] = $"30/[{formulaBody}]";
+
+        // Final VS30 değeri
+        double vs30Val = sumTime > 0 ? 30.0 / sumTime : 0;
+        string vs30Str = $"{Math.Round(vs30Val)} m/s";
+
+        // Tam formül: Vs30 = 30/[(0,28/157)+...] = 1101 m/s
+        result["VS30_FORMULA_FULL"] = $"Vs30 = 30/[{formulaBody}] = {vs30Str}";
+
+        return result;
     }
 }

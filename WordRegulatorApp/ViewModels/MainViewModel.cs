@@ -61,16 +61,26 @@ public partial class MainViewModel : ObservableObject
 
     // ================= VS30 HESAPLAYICI DİNAMİK ÖZELLİKLERİ =================
     public List<int> Vs30LayerCountOptions { get; } = new() { 4, 5 };
+    public List<int> Vs30SeriesCountOptions { get; } = new() { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
 
     [ObservableProperty]
     private int _selectedVs30LayerCount = 5;
 
+    [ObservableProperty]
+    private int _selectedVs30SeriesCount = 1;
+
+    [ObservableProperty]
+    private string _baseTopLevelInput = "-3,24(35,57)";
+
+    // DfInput/Df artık sadece tabaka paneli referansı için bırakıldı;
+    // serim bazlı Df her Vs30SeriesViewModel içinde ayrıca hesaplanır.
     [ObservableProperty]
     private string _dfInput = "0.82";
 
     public double Df => double.TryParse(DfInput.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0.0;
 
     public ObservableCollection<Vs30LayerViewModel> Vs30Layers { get; } = new();
+    public ObservableCollection<Vs30SeriesViewModel> Vs30Series { get; } = new();
 
     // ================= SONDAJ KUYULARI DİNAMİK ÖZELLİKLERİ =================
     [ObservableProperty]
@@ -93,6 +103,7 @@ public partial class MainViewModel : ObservableObject
 
         LoadVariables();
         SetupVs30Layers();
+        SetupVs30Series();
         SetupDrillingWells();
         ScanTemplateDirectory();
     }
@@ -124,6 +135,12 @@ public partial class MainViewModel : ObservableObject
     partial void OnSelectedVs30LayerCountChanged(int value)
     {
         SetupVs30Layers();
+        RecalculateAllSeries();
+    }
+
+    partial void OnSelectedVs30SeriesCountChanged(int value)
+    {
+        SetupVs30Series();
     }
 
     partial void OnDfInputChanged(string value)
@@ -135,8 +152,18 @@ public partial class MainViewModel : ObservableObject
     private void OnVs30LayerChanged(object? sender, EventArgs e)
     {
         RecalculateVs30();
+        RecalculateAllSeries();
     }
 
+    private void OnVs30SeriesChanged(object? sender, EventArgs e)
+    {
+        RecalculateAllSeries();
+    }
+
+    /// <summary>
+    /// Eski tek-Df modeli: DfInput'tan okunan Df ile VS30 değişkenini günceller.
+    /// Serim modeli etkin olmadığında fallback olarak kullanılır.
+    /// </summary>
     private void RecalculateVs30()
     {
         var domainLayers = Vs30Layers.Select(x => new Vs30LayerItem
@@ -147,12 +174,112 @@ public partial class MainViewModel : ObservableObject
             Velocity = x.Velocity
         });
 
+        // Serim sayısı 1 ise DfInput'tan al, yoksa 1. serimin Df'ini al
+        double df = Vs30Series.Count > 0 ? GetBaseTopLevel(out _) : Df;
+        df = Df; // DfInput her zaman fallback
+
         string calculatedVs30 = _variableService.CalculateVs30(domainLayers, Df);
 
         var vs30Var = Variables.FirstOrDefault(x => string.Equals(x.Key, "VS30", StringComparison.OrdinalIgnoreCase));
         if (vs30Var != null)
         {
             vs30Var.Value = calculatedVs30;
+        }
+
+        RecalculateAllSeries();
+    }
+
+    private void SetupVs30Series()
+    {
+        int count = SelectedVs30SeriesCount;
+
+        while (Vs30Series.Count < count)
+        {
+            int n = Vs30Series.Count + 1;
+            double kotStart = 36.28 + (n - 1) * 5.0;
+            double kotEnd = kotStart + 0.22;
+            var s = new Vs30SeriesViewModel(n, kotStart, kotEnd);
+            s.SeriesChanged += OnVs30SeriesChanged;
+            Vs30Series.Add(s);
+        }
+
+        while (Vs30Series.Count > count)
+        {
+            var last = Vs30Series.Last();
+            last.SeriesChanged -= OnVs30SeriesChanged;
+            Vs30Series.RemoveAt(Vs30Series.Count - 1);
+        }
+
+        RecalculateAllSeries();
+    }
+
+    partial void OnBaseTopLevelInputChanged(string value)
+    {
+        var btVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "FROMTHEBASETOPLEVEL", StringComparison.OrdinalIgnoreCase));
+        if (btVar != null && btVar.Value != value)
+        {
+            btVar.Value = value;
+        }
+        RecalculateAllSeries();
+    }
+
+    /// <summary>
+    /// FROMTHEBASETOPLEVEL / BaseTopLevelInput değerini sayısal olarak okur.
+    /// Birden fazla formatı destekler: "-3,24(35,57)" → 35.57 veya "35,57" → 35.57
+    /// </summary>
+    private double GetBaseTopLevel(out string rawValue)
+    {
+        rawValue = BaseTopLevelInput;
+        if (string.IsNullOrWhiteSpace(rawValue))
+        {
+            var btVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "FROMTHEBASETOPLEVEL", StringComparison.OrdinalIgnoreCase));
+            if (btVar != null) rawValue = btVar.Value;
+        }
+
+        // "-3,24(35,57)" → parantez içini al → 35,57
+        string val = rawValue ?? string.Empty;
+        int parenOpen = val.IndexOf('(');
+        int parenClose = val.IndexOf(')');
+        if (parenOpen >= 0 && parenClose > parenOpen)
+        {
+            val = val.Substring(parenOpen + 1, parenClose - parenOpen - 1);
+        }
+        val = val.Replace(',', '.');
+        return double.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : 0.0;
+    }
+
+    private void RecalculateAllSeries()
+    {
+        if (Vs30Series.Count == 0) return;
+
+        double baseTopLevel = GetBaseTopLevel(out _);
+        string? firstVs30 = null;
+
+        foreach (var series in Vs30Series)
+        {
+            double kotAvg = series.KotAverage;
+            double df = kotAvg - baseTopLevel;
+            if (df < 0) df = 0;
+
+            var seriesDomainLayers = series.Layers.Select(x => new Vs30LayerItem
+            {
+                LayerNumber = x.LayerNumber,
+                StartDepth = x.StartDepth,
+                EndDepth = x.EndDepth,
+                Velocity = x.Velocity
+            }).ToList();
+
+            string vs30Str = _variableService.CalculateVs30(seriesDomainLayers, df);
+            series.UpdateResults(df, vs30Str);
+
+            firstVs30 ??= vs30Str;
+        }
+
+        // {{VS30}} değişkenini 1. serimin sonucu ile güncelle
+        var vs30Var = Variables.FirstOrDefault(x => string.Equals(x.Key, "VS30", StringComparison.OrdinalIgnoreCase));
+        if (vs30Var != null && firstVs30 != null)
+        {
+            vs30Var.Value = firstVs30;
         }
     }
 
@@ -236,16 +363,8 @@ public partial class MainViewModel : ObservableObject
         var firstWell = DrillingWells.FirstOrDefault();
         if (firstWell != null)
         {
-            if (!string.IsNullOrWhiteSpace(firstWell.Latitude))
-            {
-                var latVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "LATİTUDE", StringComparison.OrdinalIgnoreCase));
-                if (latVar != null) latVar.Value = firstWell.Latitude;
-            }
-            if (!string.IsNullOrWhiteSpace(firstWell.Longitude))
-            {
-                var lonVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "LONGİTUDE", StringComparison.OrdinalIgnoreCase));
-                if (lonVar != null) lonVar.Value = firstWell.Longitude;
-            }
+            // NOT: Enlem (LATİTUDE) ve Boylam (LONGİTUDE) değişkenleri sondaj kuyusundan
+            // otomatik kopyalanmaz; kullanıcı Değişkenler panelinden bağımsız olarak girer.
             if (!string.IsNullOrWhiteSpace(firstWell.StartDate))
             {
                 var dateVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "DRİLLİNGDATE", StringComparison.OrdinalIgnoreCase));
@@ -315,12 +434,26 @@ public partial class MainViewModel : ObservableObject
         IndependentCount = Variables.Count(x => !x.IsDependent);
         DependentCount = Variables.Count(x => x.IsDependent);
 
+        var btVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "FROMTHEBASETOPLEVEL", StringComparison.OrdinalIgnoreCase));
+        if (btVar != null && !string.IsNullOrWhiteSpace(btVar.Value))
+        {
+            BaseTopLevelInput = btVar.Value;
+        }
+
         RecalculateDependencies();
     }
 
     private void OnVariableValueChanged(object? sender, string newValue)
     {
         if (_isRecalculating || sender is not VariableItemViewModel item) return;
+
+        if (string.Equals(item.Key, "FROMTHEBASETOPLEVEL", StringComparison.OrdinalIgnoreCase))
+        {
+            if (BaseTopLevelInput != newValue)
+            {
+                BaseTopLevelInput = newValue;
+            }
+        }
 
         // Kullanıcı SHEETİSLANDPARCEL alanını elle yazarsa geçersiz kılma olarak işaretle
         if (string.Equals(item.Key, "SHEETİSLANDPARCEL", StringComparison.OrdinalIgnoreCase))
@@ -519,6 +652,131 @@ public partial class MainViewModel : ObservableObject
                 replacements[kvp.Key] = kvp.Value;
             }
 
+            // VS30 hesaplama adımı değişkenleri — tüm serimler için
+            double baseTopLevelForReplace = GetBaseTopLevel(out _);
+
+            if (Vs30Series.Count > 0)
+            {
+                var firstSeries = Vs30Series[0];
+                var firstSeriesDomainLayers = firstSeries.Layers.Select(x => new Vs30LayerItem
+                {
+                    LayerNumber = x.LayerNumber,
+                    StartDepth = x.StartDepth,
+                    EndDepth = x.EndDepth,
+                    Velocity = x.Velocity
+                }).ToList();
+
+                double dfForReplace = firstSeries.KotAverage - baseTopLevelForReplace;
+                if (dfForReplace < 0) dfForReplace = 0;
+
+                var vs30Replacements = _variableService.GenerateVs30Replacements(firstSeriesDomainLayers, dfForReplace);
+                foreach (var kvp in vs30Replacements)
+                {
+                    replacements[kvp.Key] = kvp.Value;
+                }
+            }
+
+            var domainVs30Series = new List<Vs30SeriesItem>();
+
+            // Serim bazlı VS30 değişkenleri: {{VS30_S1_FORMULA}}, {{VS30_S1_H1}} vb.
+            for (int si = 0; si < Vs30Series.Count; si++)
+            {
+                var series = Vs30Series[si];
+                int sNum = si + 1;
+                double seriesDf = series.KotAverage - baseTopLevelForReplace;
+                if (seriesDf < 0) seriesDf = 0;
+
+                var seriesDomainLayers = series.Layers.Select(x => new Vs30LayerItem
+                {
+                    LayerNumber = x.LayerNumber,
+                    StartDepth = x.StartDepth,
+                    EndDepth = x.EndDepth,
+                    Velocity = x.Velocity
+                }).ToList();
+
+                var seriesReplacements = _variableService.GenerateVs30Replacements(seriesDomainLayers, seriesDf);
+                foreach (var kvp in seriesReplacements)
+                {
+                    // VS30_DF → VS30_S1_DF, VS30_H1 → VS30_S1_H1 vb.
+                    string serimKey = kvp.Key.Replace("VS30_", $"VS30_S{sNum}_");
+                    replacements[serimKey] = kvp.Value;
+                }
+
+                // Serime özgü ek değişkenler
+                replacements[$"VS30_S{sNum}_KOTSTART"] = series.KotStartInput;
+                replacements[$"VS30_S{sNum}_KOTEND"] = series.KotEndInput;
+                replacements[$"VS30_S{sNum}_KOTAVG"] = series.KotAverage.ToString("F2", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
+                replacements[$"VS30_S{sNum}_DF"] = seriesDf.ToString("F2", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
+                replacements[$"VS30_S{sNum}_RESULT"] = series.Vs30Result;
+
+                // A Katsayısı: A = 68 * (Vs30)^(-0.6) -> {{A1}}, {{A2}} ...
+                double aVal = series.AValue;
+                if (aVal <= 0)
+                {
+                    var digits = new string(series.Vs30Result.Where(c => char.IsDigit(c) || c == '.' || c == ',').ToArray()).Replace(',', '.');
+                    if (double.TryParse(digits, NumberStyles.Any, CultureInfo.InvariantCulture, out var vs30Val) && vs30Val > 0)
+                    {
+                        aVal = 68.0 * Math.Pow(vs30Val, -0.6);
+                    }
+                }
+                string aStr = aVal.ToString("F2", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
+                replacements[$"A{sNum}"] = aStr;
+                replacements[$"VS30_S{sNum}_A"] = aStr;
+                replacements[$"A_{sNum}"] = aStr;
+
+                string formula = seriesReplacements.TryGetValue("VS30_FORMULA", out var f) ? f : "";
+                string formulaFull = seriesReplacements.TryGetValue("VS30_FORMULA_FULL", out var ff) ? ff : "";
+                double h1Val = double.TryParse(seriesReplacements.TryGetValue("VS30_H1", out var h1Str) ? h1Str.Replace(',', '.') : "0", System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedH1) ? parsedH1 : 0.0;
+
+                domainVs30Series.Add(new Vs30SeriesItem
+                {
+                    SeriesNumber = sNum,
+                    SeriesName = $"SS-{sNum}",
+                    KotStart = series.KotStart,
+                    KotEnd = series.KotEnd,
+                    KotAverage = series.KotAverage,
+                    Df = seriesDf,
+                    H1 = h1Val,
+                    AValue = aVal,
+                    Vs30Result = series.Vs30Result,
+                    Formula = formula,
+                    FormulaFull = formulaFull,
+                    Layers = seriesDomainLayers
+                });
+            }
+
+            // Geriye dönük uyumluluk için genel {{A}} değişkeni (1. serimin A değeri)
+            if (Vs30Series.Count > 0)
+            {
+                replacements["A"] = replacements.TryGetValue("A1", out var a1) ? a1 : "1,00";
+            }
+
+            // TÜK'e göre tüm serimlerin birleşik Vs30 sonuçları: örn: "1101 / 1062 m/sn" veya "1101 / 1062"
+            var vs30NumbersList = new List<string>();
+            foreach (var s in Vs30Series)
+            {
+                var digits = new string(s.Vs30Result.Where(c => char.IsDigit(c) || c == '.' || c == ',').ToArray()).Replace(',', '.');
+                if (double.TryParse(digits, NumberStyles.Any, CultureInfo.InvariantCulture, out var vs30Val) && vs30Val > 0)
+                {
+                    vs30NumbersList.Add(Math.Round(vs30Val).ToString(CultureInfo.GetCultureInfo("tr-TR")));
+                }
+            }
+
+            string combinedVs30Nums = string.Join(" / ", vs30NumbersList);
+            string combinedVs30Msn = vs30NumbersList.Count > 0 ? $"{combinedVs30Nums} m/sn" : "—";
+
+            replacements["VS30_ALL"] = combinedVs30Msn;
+            replacements["VS30_SUMMARY"] = combinedVs30Msn;
+            replacements["ALL_VS30"] = combinedVs30Msn;
+            replacements["ALL_VS30_RESULTS"] = combinedVs30Msn;
+            replacements["TUK_VS30"] = combinedVs30Msn;
+            replacements["TÜK_VS30"] = combinedVs30Msn;
+
+            replacements["VS30_ALL_NUM"] = combinedVs30Nums;
+            replacements["ALL_VS30_NUM"] = combinedVs30Nums;
+            replacements["TUK_VS30_NUM"] = combinedVs30Nums;
+            replacements["TÜK_VS30_NUM"] = combinedVs30Nums;
+
             // Türkçe / İngilizce ve Harf Varyasyonları İçin Takma Adlar (Aliases)
             void AddAlias(string aliasKey, string originalKey)
             {
@@ -541,6 +799,13 @@ public partial class MainViewModel : ObservableObject
             AddAlias("TOPLAMSONDAJ", "TOTALDRİLLİNG");
             AddAlias("TOPLAM_SONDAJ", "TOTALDRİLLİNG");
 
+            // GROUNDWATER / YERALTISUYU / YERALTI_SUYU
+            AddAlias("YERALTISUYU", "GROUNDWATER");
+            AddAlias("YERALTI_SUYU", "GROUNDWATER");
+            AddAlias("GROUND_WATER", "GROUNDWATER");
+            AddAlias("GROUNDWATERLEVEL", "GROUNDWATER");
+            AddAlias("YERALTISUYUSEVIYESI", "GROUNDWATER");
+
             // AREAOFSTUDY / AREA_OF_STUDY / INCELEMEALANI
             AddAlias("AREA_OF_STUDY", "AREAOFSTUDY");
             AddAlias("INCELEMEALANI", "AREAOFSTUDY");
@@ -562,7 +827,7 @@ public partial class MainViewModel : ObservableObject
             AddAlias("SHEETISLANDPARCEL", "SHEETİSLANDPARCEL");
             AddAlias("PAFTAADAPARSEL", "SHEETİSLANDPARCEL");
 
-            var batchResult = await _documentProcessor.ProcessTemplateDirectoryAsync(TemplateDirectoryPath, targetSubfolder, replacements, domainWells);
+            var batchResult = await _documentProcessor.ProcessTemplateDirectoryAsync(TemplateDirectoryPath, targetSubfolder, replacements, domainWells, domainVs30Series);
 
             if (batchResult.Success)
             {
