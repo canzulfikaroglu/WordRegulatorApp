@@ -196,10 +196,10 @@
                                 <TextBox Text="{Binding BaseTopLevelInput, UpdateSourceTrigger=PropertyChanged}" Width="135" Style="{StaticResource DarkTextBoxStyle}" ToolTip="Temel Üst Kotu (örn: -3,24(35,57) veya 35,57). Alttaki {{FROMTHEBASETOPLEVEL}} ile senkronizedir."/>
                             </StackPanel>
 
-                            <!-- Serim Sayısı Seçeneği -->
+                            <!-- Serim Sayısı Elle Giriş -->
                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="Serim Sayısı:" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <ComboBox ItemsSource="{Binding Vs30SeriesCountOptions}" SelectedItem="{Binding SelectedVs30SeriesCount}" Width="65" Height="32" Padding="8,4" Background="#13131A" Foreground="{StaticResource AccentPurpleBrush}" FontWeight="Bold"/>
+                                <TextBlock Text="Serim Sayısı (Elle Girin):" FontSize="12" Foreground="{StaticResource AccentPurpleBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Text="{Binding Vs30SeriesCountInput, UpdateSourceTrigger=PropertyChanged}" Width="65" Style="{StaticResource DarkTextBoxStyle}"/>
                             </StackPanel>
                         </Grid>
 

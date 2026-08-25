@@ -32,7 +32,6 @@ public class VariableService : IVariableService
             // ================= 1.2 KARTAL--Veri Kapak =================
             new("SHEETİSLANDPARCEL", "Pafta Ada Parsel (Birleşik)", "G22A136MD PAFTA 2249 ADA 85 PARSEL", VariableCategory.VeriKapak, VariableType.Independent, "G22A136MD 250 PAFTA 2249 ADA 85 PARSEL", formula: "{SHEET} PAFTA {İSLAND} ADA {PARCEL} PARSEL", order: 10),
             
-            new("VS30", "VS30 Değeri", "VS30 hesabı (Tabakalardan otomatik)", VariableCategory.VeriKapak, VariableType.Dependent, "1101 m/s", order: 13),
             new("LOCALSOİLCLASS", "Yerel Zemin Sınıfı", "Yerel Zemin Sınıfı (Örn: ZF, ZC)", VariableCategory.VeriKapak, VariableType.Independent, "ZF", order: 14),
             new("GROUNDWATERLEVEL", "Yeraltı Suyu Seviyesi", "Sondaj kuyuları su durumu", VariableCategory.VeriKapak, VariableType.Dependent, "Yeraltı suyuna rastlanmamıştır.", order: 15),
 
@@ -40,7 +39,7 @@ public class VariableService : IVariableService
             new("LATİTUDE", "Enlem", "Enlem koordinatı", VariableCategory.Rapor, VariableType.Independent, "", order: 20),
             new("LONGİTUDE", "Boylam", "Boylam koordinatı", VariableCategory.Rapor, VariableType.Independent, "", order: 21),
             new("DRİLLİNGWELLCOUNT", "Sondaj Kuyusu Sayısı", "Sondaj kuyusu sayısı (Sondaj kuyuları panelinden otomatik)", VariableCategory.Rapor, VariableType.Dependent, "3", order: 22),
-            new("TOTALDRİLLİNG", "Toplam Sondaj", "Toplam sondaj metrajı (Otomatik)", VariableCategory.Rapor, VariableType.Dependent, "45.00m", order: 23),
+            new("TOTALDRİLLİNG", "Toplam Sondaj", "Toplam sondaj metrajı (Otomatik)", VariableCategory.Rapor, VariableType.Dependent, "45.00", order: 23),
             new("MAXKOT", "En Yüksek Kot", "En yüksek kot", VariableCategory.Rapor, VariableType.Independent, "39.50", order: 24),
             new("MİNKOT", "En Düşük Kot", "En düşük kot", VariableCategory.Rapor, VariableType.Independent, "36.20", order: 25),
             new("AREAOFSTUDY", "İnceleme Alanı (m²)", "İnceleme alanı (m²)", VariableCategory.Rapor, VariableType.Independent, "500", order: 26),
@@ -174,7 +173,7 @@ public class VariableService : IVariableService
         }
 
         double sumDepth = wellList.Sum(w => w.DepthMeters);
-        string totalDrillingStr = $"{sumDepth:F2}m";
+        string totalDrillingStr = $"{sumDepth:F2}";
 
         var statusParts = new List<string>();
 

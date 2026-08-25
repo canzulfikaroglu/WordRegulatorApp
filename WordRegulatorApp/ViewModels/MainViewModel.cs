@@ -61,13 +61,12 @@ public partial class MainViewModel : ObservableObject
 
     // ================= VS30 HESAPLAYICI DİNAMİK ÖZELLİKLERİ =================
     public List<int> Vs30LayerCountOptions { get; } = new() { 4, 5 };
-    public List<int> Vs30SeriesCountOptions { get; } = new() { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
 
     [ObservableProperty]
     private int _selectedVs30LayerCount = 5;
 
     [ObservableProperty]
-    private int _selectedVs30SeriesCount = 1;
+    private string _vs30SeriesCountInput = "1";
 
     [ObservableProperty]
     private string _baseTopLevelInput = "-3,24(35,57)";
@@ -138,7 +137,7 @@ public partial class MainViewModel : ObservableObject
         RecalculateAllSeries();
     }
 
-    partial void OnSelectedVs30SeriesCountChanged(int value)
+    partial void OnVs30SeriesCountInputChanged(string value)
     {
         SetupVs30Series();
     }
@@ -161,37 +160,20 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Eski tek-Df modeli: DfInput'tan okunan Df ile VS30 değişkenini günceller.
-    /// Serim modeli etkin olmadığında fallback olarak kullanılır.
+    /// Eski tek-Df modeli fallback — sadece serim modelini tetikler.
     /// </summary>
     private void RecalculateVs30()
     {
-        var domainLayers = Vs30Layers.Select(x => new Vs30LayerItem
-        {
-            LayerNumber = x.LayerNumber,
-            StartDepth = x.StartDepth,
-            EndDepth = x.EndDepth,
-            Velocity = x.Velocity
-        });
-
-        // Serim sayısı 1 ise DfInput'tan al, yoksa 1. serimin Df'ini al
-        double df = Vs30Series.Count > 0 ? GetBaseTopLevel(out _) : Df;
-        df = Df; // DfInput her zaman fallback
-
-        string calculatedVs30 = _variableService.CalculateVs30(domainLayers, Df);
-
-        var vs30Var = Variables.FirstOrDefault(x => string.Equals(x.Key, "VS30", StringComparison.OrdinalIgnoreCase));
-        if (vs30Var != null)
-        {
-            vs30Var.Value = calculatedVs30;
-        }
-
         RecalculateAllSeries();
     }
 
     private void SetupVs30Series()
     {
-        int count = SelectedVs30SeriesCount;
+        if (!int.TryParse(Vs30SeriesCountInput, out int count) || count < 1)
+        {
+            count = 1;
+        }
+        if (count > 50) count = 50;
 
         while (Vs30Series.Count < count)
         {
@@ -248,12 +230,16 @@ public partial class MainViewModel : ObservableObject
         return double.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : 0.0;
     }
 
+    [ObservableProperty]
+    private string _allVs30Values = "—";
+
     private void RecalculateAllSeries()
     {
         if (Vs30Series.Count == 0) return;
 
         double baseTopLevel = GetBaseTopLevel(out _);
-        string? firstVs30 = null;
+
+        var vs30NumbersList = new List<string>();
 
         foreach (var series in Vs30Series)
         {
@@ -272,15 +258,18 @@ public partial class MainViewModel : ObservableObject
             string vs30Str = _variableService.CalculateVs30(seriesDomainLayers, df);
             series.UpdateResults(df, vs30Str);
 
-            firstVs30 ??= vs30Str;
+            // Sadece sayısal kısmı al ("1101 m/s" → "1101")
+            var digits = new string(vs30Str.Where(c => char.IsDigit(c) || c == '.' || c == ',').ToArray()).Replace(',', '.');
+            if (double.TryParse(digits, NumberStyles.Any, CultureInfo.InvariantCulture, out var vs30Val) && vs30Val > 0)
+            {
+                vs30NumbersList.Add(Math.Round(vs30Val).ToString(CultureInfo.GetCultureInfo("tr-TR")));
+            }
         }
 
-        // {{VS30}} değişkenini 1. serimin sonucu ile güncelle
-        var vs30Var = Variables.FirstOrDefault(x => string.Equals(x.Key, "VS30", StringComparison.OrdinalIgnoreCase));
-        if (vs30Var != null && firstVs30 != null)
-        {
-            vs30Var.Value = firstVs30;
-        }
+        // Tüm serimlerin VS30 değerleri birleştirilmiş: "1101 / 1062"
+        AllVs30Values = vs30NumbersList.Count > 0
+            ? string.Join(" / ", vs30NumbersList)
+            : "—";
     }
 
     partial void OnDrillingWellCountInputChanged(string value)
@@ -779,6 +768,8 @@ public partial class MainViewModel : ObservableObject
             replacements["TUK_VS30"] = combinedVs30Msn;
             replacements["TÜK_VS30"] = combinedVs30Msn;
 
+            // Sadece sayılar (birim eklemeden) — raporda {{VS30_ALL_VALUES}} şeklinde kullanılır
+            replacements["VS30_ALL_VALUES"] = combinedVs30Nums;
             replacements["VS30_ALL_NUM"] = combinedVs30Nums;
             replacements["ALL_VS30_NUM"] = combinedVs30Nums;
             replacements["TUK_VS30_NUM"] = combinedVs30Nums;
