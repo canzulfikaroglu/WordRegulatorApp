@@ -10,6 +10,7 @@ public class Vs30SeriesItem
     public double Df { get; set; }
     public double H1 { get; set; }
     public double AValue { get; set; }
+    public string T0 { get; set; } = string.Empty;
     public string Vs30Result { get; set; } = string.Empty;
     public string Formula { get; set; } = string.Empty;
     public string FormulaFull { get; set; } = string.Empty;

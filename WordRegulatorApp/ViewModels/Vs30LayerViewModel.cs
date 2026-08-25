@@ -22,6 +22,7 @@ public partial class Vs30LayerViewModel : ObservableObject
     public double Velocity => double.TryParse(VelocityInput.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0.0;
 
     public event EventHandler? LayerChanged;
+    public event EventHandler<string>? DepthPropertyChanged;
 
     public Vs30LayerViewModel(int layerNumber, double defaultStartDepth, double defaultEndDepth, double defaultVelocity)
     {
@@ -35,12 +36,14 @@ public partial class Vs30LayerViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(StartDepth));
         LayerChanged?.Invoke(this, EventArgs.Empty);
+        DepthPropertyChanged?.Invoke(this, "StartDepth");
     }
 
     partial void OnEndDepthInputChanged(string value)
     {
         OnPropertyChanged(nameof(EndDepth));
         LayerChanged?.Invoke(this, EventArgs.Empty);
+        DepthPropertyChanged?.Invoke(this, "EndDepth");
     }
 
     partial void OnVelocityInputChanged(string value)

@@ -313,23 +313,31 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             if (rows.Count == 0) continue;
 
             // Tabloda dinamik VS30/Serim/Tabaka etiketleri var mı?
-            bool hasSeriesTags = rows.Any(r => r.InnerText.Contains("{{SERIES_") || r.InnerText.Contains("{{SERIM_") ||
-                                                r.InnerText.Contains("{{LAYER_") || r.InnerText.Contains("{{TABAKA_"));
-            if (!hasSeriesTags) continue;
+            int firstDynamicIdx = -1;
+            int lastDynamicIdx = -1;
 
-            // Dinamik serim satırlarını ve tabaka satırlarını tespit et
-            var dynamicRows = rows.Where(r => r.InnerText.Contains("{{SERIES_") || r.InnerText.Contains("{{SERIM_") ||
-                                              r.InnerText.Contains("{{LAYER_") || r.InnerText.Contains("{{TABAKA_")).ToList();
+            for (int r = 0; r < rows.Count; r++)
+            {
+                string rText = rows[r].InnerText;
+                if (rText.Contains("{{SERIES_") || rText.Contains("{{SERIM_") ||
+                    rText.Contains("{{LAYER_") || rText.Contains("{{TABAKA_"))
+                {
+                    if (firstDynamicIdx == -1) firstDynamicIdx = r;
+                    lastDynamicIdx = r;
+                }
+            }
 
-            if (dynamicRows.Count == 0) continue;
+            if (firstDynamicIdx == -1 || lastDynamicIdx == -1) continue;
 
-            var anchor = dynamicRows[0];
+            // firstDynamicIdx ile lastDynamicIdx arasındaki TÜM satırlar (örneğin "Vs ortalama(m/s)" başlığı dahil) şablon bloğudur
+            var templateBlockRows = rows.Skip(firstDynamicIdx).Take(lastDynamicIdx - firstDynamicIdx + 1).ToList();
+            var anchor = templateBlockRows[0];
 
             for (int i = 0; i < seriesList.Count; i++)
             {
                 var s = seriesList[i];
 
-                foreach (var templateRow in dynamicRows)
+                foreach (var templateRow in templateBlockRows)
                 {
                     string rText = templateRow.InnerText;
                     bool isLayerRow = rText.Contains("{{LAYER_") || rText.Contains("{{TABAKA_");
@@ -348,7 +356,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                     }
                     else
                     {
-                        // Serim başlık satırı: Her serim için 1 kez çoğaltılır
+                        // Serim başlık veya alt başlık satırı: Her serim için 1 kez çoğaltılır (Vs ortalama başlığı üstte kalır)
                         var newRow = (TableRow)templateRow.CloneNode(true);
                         var replacements = GetSeriesReplacementsDictionary(s);
                         totalReplacements += ProcessElementContainers(newRow, replacements, replacedKeys);
@@ -358,7 +366,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             }
 
             // Orijinal şablon satırlarını temizle
-            foreach (var templateRow in dynamicRows)
+            foreach (var templateRow in templateBlockRows)
             {
                 templateRow.Remove();
             }
@@ -442,6 +450,18 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             ? Math.Round(parsedVs).ToString(TrCulture)
             : s.Vs30Result;
 
+        string vs30WithMsn = s.Vs30Result;
+        if (!string.IsNullOrWhiteSpace(vs30WithMsn))
+        {
+            if (vs30WithMsn.EndsWith("m/s", StringComparison.OrdinalIgnoreCase))
+                vs30WithMsn = vs30WithMsn.Substring(0, vs30WithMsn.Length - 3) + "m/sn";
+            else if (!vs30WithMsn.EndsWith("m/sn", StringComparison.OrdinalIgnoreCase))
+                vs30WithMsn = $"{vs30WithMsn} m/sn";
+        }
+
+        string t0Formatted = !string.IsNullOrWhiteSpace(s.T0) ? s.T0 : "—";
+        string seismicSummaryText = $"Sismik Serim-{s.SeriesNumber} için; yüzeyden Vs30= {vs30WithMsn}, Bu serimden alınan kayıtlardan yapılan hesaplamalar sonucu zemin hakim titreşim periyodunun değeri T0 = {t0Formatted} sn olarak hesaplanmıştır.";
+
         string aStr = s.AValue.ToString("F2", TrCulture);
 
         var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -489,7 +509,16 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             ["SERIM_A"] = aStr,
             ["A"] = aStr,
             ["SERIES_A_FORMULA"] = $"68*({vs30CleanNum})-0,6 = {aStr}",
-            ["SERIES_A_FULL"] = $"A{s.SeriesNumber} = 68*({vs30CleanNum})-0,6 = {aStr}"
+            ["SERIES_A_FULL"] = $"A{s.SeriesNumber} = 68*({vs30CleanNum})-0,6 = {aStr}",
+
+            ["T0"] = s.T0,
+            ["SERIES_T0"] = s.T0,
+            ["SERIM_T0"] = s.T0,
+
+            ["SERIES_SEISMIC_SUMMARY"] = seismicSummaryText,
+            ["SERIES_T0_SUMMARY"] = seismicSummaryText,
+            ["SERIM_T0_OZET"] = seismicSummaryText,
+            ["SERIES_PERIOD_SUMMARY"] = seismicSummaryText
         };
 
         if (layer != null)

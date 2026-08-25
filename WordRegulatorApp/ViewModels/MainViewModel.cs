@@ -724,6 +724,11 @@ public partial class MainViewModel : ObservableObject
                 replacements[$"VS30_S{sNum}_A"] = aStr;
                 replacements[$"A_{sNum}"] = aStr;
 
+                // T0 Değeri: S1T0, S2T0...
+                replacements[$"S{sNum}T0"] = series.T0Input;
+                replacements[$"VS30_S{sNum}_T0"] = series.T0Input;
+                replacements[$"T0_{sNum}"] = series.T0Input;
+
                 string formula = seriesReplacements.TryGetValue("VS30_FORMULA", out var f) ? f : "";
                 string formulaFull = seriesReplacements.TryGetValue("VS30_FORMULA_FULL", out var ff) ? ff : "";
                 double h1Val = double.TryParse(seriesReplacements.TryGetValue("VS30_H1", out var h1Str) ? h1Str.Replace(',', '.') : "0", System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedH1) ? parsedH1 : 0.0;
@@ -738,6 +743,7 @@ public partial class MainViewModel : ObservableObject
                     Df = seriesDf,
                     H1 = h1Val,
                     AValue = aVal,
+                    T0 = series.T0Input,
                     Vs30Result = series.Vs30Result,
                     Formula = formula,
                     FormulaFull = formulaFull,
@@ -745,10 +751,11 @@ public partial class MainViewModel : ObservableObject
                 });
             }
 
-            // Geriye dönük uyumluluk için genel {{A}} değişkeni (1. serimin A değeri)
+            // Geriye dönük uyumluluk için genel {{A}} ve {{T0}} değişkeni (1. serimin değerleri)
             if (Vs30Series.Count > 0)
             {
                 replacements["A"] = replacements.TryGetValue("A1", out var a1) ? a1 : "1,00";
+                replacements["T0"] = Vs30Series[0].T0Input;
             }
 
             // TÜK'e göre tüm serimlerin birleşik Vs30 sonuçları: örn: "1101 / 1062 m/sn" veya "1101 / 1062"
@@ -811,6 +818,13 @@ public partial class MainViewModel : ObservableObject
             AddAlias("INCELEMEALANI", "AREAOFSTUDY");
             AddAlias("İNCELEMEALANI", "AREAOFSTUDY");
             AddAlias("INCELEME_ALANI", "AREAOFSTUDY");
+
+            // AREAOFSTUDYFORMATIONTYPE / AREAOFSTUDYFORMATİONTYPE / INCELEMEALANIFORMASYONTIP
+            AddAlias("AREAOFSTUDYFORMATİONTYPE", "AREAOFSTUDYFORMATIONTYPE");
+            AddAlias("AREA_OF_STUDY_FORMATION_TYPE", "AREAOFSTUDYFORMATIONTYPE");
+            AddAlias("INCELEMEALANIFORMASYONTIPI", "AREAOFSTUDYFORMATIONTYPE");
+            AddAlias("İNCELEMEALANIFORMASYONTİPİ", "AREAOFSTUDYFORMATIONTYPE");
+            AddAlias("INCELEMEALANIFORMASYONTIP", "AREAOFSTUDYFORMATIONTYPE");
 
             // LATITUDE / LONGITUDE
             AddAlias("LATITUDE", "LATİTUDE");

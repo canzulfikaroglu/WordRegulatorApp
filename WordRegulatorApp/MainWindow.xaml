@@ -235,11 +235,15 @@
                                                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
                                                         <TextBlock Text="Kot Başlangıç:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                                        <TextBox Text="{Binding KotStartInput, UpdateSourceTrigger=PropertyChanged}" Width="75" Height="28" Padding="6,4" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                        <TextBox Text="{Binding KotStartInput, UpdateSourceTrigger=PropertyChanged}" Width="70" Height="28" Padding="6,4" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
+                                                        <TextBlock Text="Kot Bitiş:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                        <TextBox Text="{Binding KotEndInput, UpdateSourceTrigger=PropertyChanged}" Width="70" Height="28" Padding="6,4" Style="{StaticResource DarkTextBoxStyle}"/>
                                                     </StackPanel>
                                                     <StackPanel Orientation="Horizontal">
-                                                        <TextBlock Text="Kot Bitiş:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                                        <TextBox Text="{Binding KotEndInput, UpdateSourceTrigger=PropertyChanged}" Width="75" Height="28" Padding="6,4" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                        <TextBlock Text="T0:" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentPurpleBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                        <TextBox Text="{Binding T0Input, UpdateSourceTrigger=PropertyChanged}" Width="65" Height="28" Padding="6,4" Style="{StaticResource DarkTextBoxStyle}"/>
                                                     </StackPanel>
                                                 </StackPanel>
 

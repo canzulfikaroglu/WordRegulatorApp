@@ -25,6 +25,10 @@ public partial class Vs30SeriesViewModel : ObservableObject
     [ObservableProperty]
     private string _kotEndInput = "0.00";
 
+    /// <summary>Serim T0 değeri (örn: 0,18)</summary>
+    [ObservableProperty]
+    private string _t0Input = "";
+
     /// <summary>Hesaplanan Df: (kotOrtalama) - baseTopLevel. Temel Üst Kotu değişkeninden alınır.</summary>
     [ObservableProperty]
     private string _dfDisplay = "0,00 m";
@@ -51,11 +55,12 @@ public partial class Vs30SeriesViewModel : ObservableObject
 
     private bool _isSyncingLayers;
 
-    public Vs30SeriesViewModel(int seriesNumber, double defaultKotStart = 36.28, double defaultKotEnd = 36.50)
+    public Vs30SeriesViewModel(int seriesNumber, double defaultKotStart = 36.28, double defaultKotEnd = 36.50, string defaultT0 = "")
     {
         SeriesNumber = seriesNumber;
         _kotStartInput = defaultKotStart.ToString("F2");
         _kotEndInput = defaultKotEnd.ToString("F2");
+        _t0Input = defaultT0;
         SetupLayers();
     }
 
@@ -98,9 +103,10 @@ public partial class Vs30SeriesViewModel : ObservableObject
 
         var oldValues = Layers.Select(l => new Tuple<double, double, double>(l.StartDepth, l.EndDepth, l.Velocity)).ToList();
 
-        foreach (var layer in Layers)
+        foreach (var old in Layers)
         {
-            layer.LayerChanged -= OnLayerChanged;
+            old.LayerChanged -= OnLayerChanged;
+            old.DepthPropertyChanged -= OnLayerDepthPropertyChanged;
         }
         Layers.Clear();
 
@@ -122,6 +128,7 @@ public partial class Vs30SeriesViewModel : ObservableObject
 
             var layer = new Vs30LayerViewModel(i, def.Item1, def.Item2, def.Item3);
             layer.LayerChanged += OnLayerChanged;
+            layer.DepthPropertyChanged += OnLayerDepthPropertyChanged;
             Layers.Add(layer);
         }
 
@@ -152,18 +159,35 @@ public partial class Vs30SeriesViewModel : ObservableObject
     private void OnLayerChanged(object? sender, EventArgs e)
     {
         if (_isSyncingLayers) return;
+        SeriesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnLayerDepthPropertyChanged(object? sender, string propName)
+    {
+        if (_isSyncingLayers) return;
         _isSyncingLayers = true;
         try
         {
             if (sender is Vs30LayerViewModel changedLayer)
             {
                 int idx = Layers.IndexOf(changedLayer);
-                if (idx >= 0 && idx < Layers.Count - 1)
+                if (idx >= 0)
                 {
-                    // 1. tabakanın üst değeri 2. tabakanın alt değeri olarak otomatik aktarılır
-                    if (Layers[idx + 1].StartDepthInput != changedLayer.EndDepthInput)
+                    if (propName == "EndDepth" && idx < Layers.Count - 1)
                     {
-                        Layers[idx + 1].StartDepthInput = changedLayer.EndDepthInput;
+                        // Üst değer değişti -> Sonraki tabakanın alt değerini otomatik güncelle
+                        if (Layers[idx + 1].StartDepthInput != changedLayer.EndDepthInput)
+                        {
+                            Layers[idx + 1].StartDepthInput = changedLayer.EndDepthInput;
+                        }
+                    }
+                    else if (propName == "StartDepth" && idx > 0)
+                    {
+                        // Alt değer değişti -> Önceki tabakanın üst değerini otomatik güncelle
+                        if (Layers[idx - 1].EndDepthInput != changedLayer.StartDepthInput)
+                        {
+                            Layers[idx - 1].EndDepthInput = changedLayer.StartDepthInput;
+                        }
                     }
                 }
             }
@@ -192,6 +216,11 @@ public partial class Vs30SeriesViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(KotEnd));
         OnPropertyChanged(nameof(KotAverage));
+        SeriesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    partial void OnT0InputChanged(string value)
+    {
         SeriesChanged?.Invoke(this, EventArgs.Empty);
     }
 

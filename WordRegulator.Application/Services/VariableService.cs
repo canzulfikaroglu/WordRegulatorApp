@@ -93,10 +93,7 @@ public class VariableService : IVariableService
             new("ELASTİCİTYMODULUS2S1", "Elastisite Modülü 2. Tabaka 1. Serim", "Elastisite modülü (2. tabaka 1. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 91),
             new("ELASTİCİTYMODULUS1S2", "Elastisite Modülü 1. Tabaka 2. Serim", "Elastisite modülü (1. tabaka 2. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 92),
             new("ELASTİCİTYMODULUS2S2", "Elastisite Modülü 2. Tabaka 2. Serim", "Elastisite modülü (2. tabaka 2. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 93),
-
-            // Serim T0
-            new("S1T0", "1. Serim T0", "1. Serim T0 değeri", VariableCategory.Rapor, VariableType.Independent, "", order: 100),
-            new("S2T0", "2. Serim T0", "2. Serim T0 değeri", VariableCategory.Rapor, VariableType.Independent, "", order: 101)
+            new("AREAOFSTUDYFORMATIONTYPE", "İnceleme Alanı Formasyon Tipi", "İnceleme Alanı Formasyon Tipi", VariableCategory.Rapor, VariableType.Independent, "İnceleme alanında Pendik Formasyonu-Kartal Üyesi (Dpk) ", order: 94)
         };
 
         return list.OrderBy(x => x.Order).ToList();
