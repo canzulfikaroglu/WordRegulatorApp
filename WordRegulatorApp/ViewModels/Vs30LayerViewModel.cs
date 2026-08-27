@@ -17,6 +17,13 @@ public partial class Vs30LayerViewModel : ObservableObject
     [ObservableProperty]
     private string _velocityInput = "157.00"; // Vs (m/s)
 
+    /// <summary>
+    /// Görev 5: df değeri bu tabakanın üst değerinden büyük olduğunda true.
+    /// Formüle dahil edilmez; UI'da silik gösterilir.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isExcluded = false;
+
     public double StartDepth => double.TryParse(StartDepthInput.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0.0;
     public double EndDepth => double.TryParse(EndDepthInput.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0.0;
     public double Velocity => double.TryParse(VelocityInput.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0.0;

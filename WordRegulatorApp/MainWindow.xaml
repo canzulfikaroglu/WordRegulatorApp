@@ -217,18 +217,13 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                     <ColumnDefinition Width="16"/>
                                                     <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
-
-                                                <!-- Serim Başlığı & Tabaka Seçimi -->
+                                                
+                                                <!-- Serim Başlığı -->
                                                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <Border Background="{StaticResource AccentPurpleBrush}" CornerRadius="6" Padding="10,6" Margin="0,0,10,0">
                                                         <TextBlock Text="{Binding SeriesName}" FontWeight="Bold" FontSize="12" Foreground="#FFFFFF"/>
                                                     </Border>
-                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <TextBlock Text="Tabaka:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                                        <ComboBox ItemsSource="{Binding LayerCountOptions}" SelectedItem="{Binding SelectedLayerCount}" Width="55" Height="28" Padding="6,2" Background="#13131A" Foreground="{StaticResource AccentPurpleBrush}" FontWeight="Bold"/>
-                                                    </StackPanel>
                                                 </StackPanel>
 
                                                 <!-- Kot Başlangıç & Kot Bitiş -->
@@ -279,9 +274,43 @@
                                                 </ItemsControl.ItemsPanel>
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate DataType="{x:Type vm:Vs30LayerViewModel}">
-                                                        <Border Width="225" Margin="0,0,10,6" Background="#1E1E2C" CornerRadius="8" Padding="10,8" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                                                        <Border Width="225" Margin="0,0,10,6" CornerRadius="8" Padding="10,8" BorderThickness="1">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Background" Value="#1E1E2C"/>
+                                                                    <Setter Property="BorderBrush" Value="{StaticResource BorderDarkBrush}"/>
+                                                                    <Setter Property="Opacity" Value="1"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsExcluded}" Value="True">
+                                                                            <Setter Property="Background" Value="#1A0A0A"/>
+                                                                            <Setter Property="BorderBrush" Value="#6B2020"/>
+                                                                            <Setter Property="Opacity" Value="0.45"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
                                                             <StackPanel>
-                                                                <TextBlock Text="{Binding LayerName}" FontWeight="Bold" FontSize="11" Foreground="{StaticResource AccentPurpleBrush}" Margin="0,0,0,5"/>
+                                                                <Grid Margin="0,0,0,5">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <TextBlock Grid.Column="0" Text="{Binding LayerName}" FontWeight="Bold" FontSize="11" Foreground="{StaticResource AccentPurpleBrush}"/>
+                                                                    <!-- Excluded badge -->
+                                                                    <Border Grid.Column="1" Background="#6B2020" CornerRadius="3" Padding="4,1" Margin="4,0,0,0">
+                                                                        <Border.Style>
+                                                                            <Style TargetType="Border">
+                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsExcluded}" Value="True">
+                                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Border.Style>
+                                                                        <TextBlock Text="HARIÇ" FontSize="8" FontWeight="Bold" Foreground="#FF6B6B"/>
+                                                                    </Border>
+                                                                </Grid>
                                                                 <Grid>
                                                                     <Grid.ColumnDefinitions>
                                                                         <ColumnDefinition Width="*"/>

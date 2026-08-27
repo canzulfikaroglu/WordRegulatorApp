@@ -247,6 +247,28 @@ public partial class Vs30SeriesViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Görev 5: df değerine göre 1. tabakanın dahil edilip edilmeyeceğini belirler.
+    /// Kural: df >= 1. tabakanın EndDepth değeri → 1. tabaka hariç tutulur (IsExcluded = true).
+    /// Diğer tabakalar her zaman dahildir.
+    /// </summary>
+    public void UpdateLayerExclusion(double df)
+    {
+        for (int i = 0; i < Layers.Count; i++)
+        {
+            if (i == 0)
+            {
+                // 1. tabaka: df, tabakanın üst değerinden (EndDepth) büyük veya eşitse hariç tut
+                Layers[i].IsExcluded = df >= Layers[i].EndDepth;
+            }
+            else
+            {
+                // Diğer tabakalar her zaman dahil
+                Layers[i].IsExcluded = false;
+            }
+        }
+    }
+
     private static double ParseDouble(string input)
         => double.TryParse(input.Replace(',', '.'), NumberStyles.Any, InvCulture, out var v) ? v : 0.0;
 }

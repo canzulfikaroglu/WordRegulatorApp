@@ -258,6 +258,9 @@ public partial class MainViewModel : ObservableObject
             string vs30Str = _variableService.CalculateVs30(seriesDomainLayers, df);
             series.UpdateResults(df, vs30Str);
 
+            // Görev 5: Tabaka exclusion durumunu güncelle
+            series.UpdateLayerExclusion(df);
+
             // Sadece sayısal kısmı al ("1101 m/s" → "1101")
             var digits = new string(vs30Str.Where(c => char.IsDigit(c) || c == '.' || c == ',').ToArray()).Replace(',', '.');
             if (double.TryParse(digits, NumberStyles.Any, CultureInfo.InvariantCulture, out var vs30Val) && vs30Val > 0)
@@ -749,12 +752,14 @@ public partial class MainViewModel : ObservableObject
 
             // TÜK'e göre tüm serimlerin birleşik Vs30 sonuçları: örn: "1101 / 1062 m/sn" veya "1101 / 1062"
             var vs30NumbersList = new List<string>();
+            var vs30NumericValues = new List<double>();
             foreach (var s in Vs30Series)
             {
                 var digits = new string(s.Vs30Result.Where(c => char.IsDigit(c) || c == '.' || c == ',').ToArray()).Replace(',', '.');
                 if (double.TryParse(digits, NumberStyles.Any, CultureInfo.InvariantCulture, out var vs30Val) && vs30Val > 0)
                 {
                     vs30NumbersList.Add(Math.Round(vs30Val).ToString(CultureInfo.GetCultureInfo("tr-TR")));
+                    vs30NumericValues.Add(vs30Val);
                 }
             }
 
@@ -774,6 +779,28 @@ public partial class MainViewModel : ObservableObject
             replacements["ALL_VS30_NUM"] = combinedVs30Nums;
             replacements["TUK_VS30_NUM"] = combinedVs30Nums;
             replacements["TÜK_VS30_NUM"] = combinedVs30Nums;
+
+            // Görev 2: MAXMINVS30 — en yüksek ve en düşük VS30 değeri
+            string maxMinVs30Str;
+            if (vs30NumericValues.Count >= 2)
+            {
+                double maxVal = vs30NumericValues.Max();
+                double minVal = vs30NumericValues.Min();
+                maxMinVs30Str = $"{Math.Round(maxVal).ToString(CultureInfo.GetCultureInfo("tr-TR"))} - {Math.Round(minVal).ToString(CultureInfo.GetCultureInfo("tr-TR"))}";
+            }
+            else if (vs30NumericValues.Count == 1)
+            {
+                maxMinVs30Str = Math.Round(vs30NumericValues[0]).ToString(CultureInfo.GetCultureInfo("tr-TR"));
+            }
+            else
+            {
+                maxMinVs30Str = "—";
+            }
+
+            replacements["MAXMİNVS30"] = maxMinVs30Str;
+            replacements["MAXMINVS30"] = maxMinVs30Str;
+            replacements["MAX_MIN_VS30"] = maxMinVs30Str;
+            replacements["VS30_MAX_MIN"] = maxMinVs30Str;
 
             // Türkçe / İngilizce ve Harf Varyasyonları İçin Takma Adlar (Aliases)
             void AddAlias(string aliasKey, string originalKey)
@@ -810,12 +837,7 @@ public partial class MainViewModel : ObservableObject
             AddAlias("İNCELEMEALANI", "AREAOFSTUDY");
             AddAlias("INCELEME_ALANI", "AREAOFSTUDY");
 
-            // AREAOFSTUDYFORMATIONTYPE / AREAOFSTUDYFORMATİONTYPE / INCELEMEALANIFORMASYONTIP
-            AddAlias("AREAOFSTUDYFORMATİONTYPE", "AREAOFSTUDYFORMATIONTYPE");
-            AddAlias("AREA_OF_STUDY_FORMATION_TYPE", "AREAOFSTUDYFORMATIONTYPE");
-            AddAlias("INCELEMEALANIFORMASYONTIPI", "AREAOFSTUDYFORMATIONTYPE");
-            AddAlias("İNCELEMEALANIFORMASYONTİPİ", "AREAOFSTUDYFORMATIONTYPE");
-            AddAlias("INCELEMEALANIFORMASYONTIP", "AREAOFSTUDYFORMATIONTYPE");
+            // AREAOFSTUDYFORMATIONTYPE aliases (kaldırıldı, raporda kullanılmıyor)
 
             // LATITUDE / LONGITUDE
             AddAlias("LATITUDE", "LATİTUDE");

@@ -43,7 +43,6 @@ public class VariableService : IVariableService
             new("MAXKOT", "En Yüksek Kot", "En yüksek kot", VariableCategory.Rapor, VariableType.Independent, "39.50", order: 24),
             new("MİNKOT", "En Düşük Kot", "En düşük kot", VariableCategory.Rapor, VariableType.Independent, "36.20", order: 25),
             new("AREAOFSTUDY", "İnceleme Alanı (m²)", "İnceleme alanı (m²)", VariableCategory.Rapor, VariableType.Independent, "500", order: 26),
-            new("MİCROZONATİONTEXT", "Mikrobölgeleme Metni", "Mikrobölgeleme rapor açıklaması", VariableCategory.Rapor, VariableType.Independent, "Pendik Formasyonu-Kartal Üyesi (Dpk) ve UA (Uygun Alan)", order: 27),
             new("HOUSINGPLAN", "Yapı Kat Planı", "Bodrum + Zemin + 5 Normal Kat + Çatı Arası", VariableCategory.Rapor, VariableType.Independent, "Bodrum + Zemin + 5 Normal Kat + Çatı Arası", order: 28),
             new("SS", "Ss İvme Katsayısı", "Ss ivme parametresi", VariableCategory.Rapor, VariableType.Independent, "", order: 29),
             new("S1", "S1 İvme Katsayısı", "S1 ivme parametresi", VariableCategory.Rapor, VariableType.Independent, "", order: 30),
@@ -54,7 +53,7 @@ public class VariableService : IVariableService
             new("SD1", "SD1 Katsayısı", "Tasarım ivme katsayısı SD1", VariableCategory.Rapor, VariableType.Independent, "", order: 35),
             new("SEATİNGAREA", "Oturum Alanı (m²)", "Oturum alanı (m²)", VariableCategory.Rapor, VariableType.Independent, "250", order: 36),
             new("ZEROPOİNTZEROKOT", "±0.00 Kotu", "±0.00 kotu değeri", VariableCategory.Rapor, VariableType.Independent, "38,81", order: 37),
-            new("FROMTHEBASETOPLEVEL", "Temel Üst Kotu Bilgisi", "Temel üst kotundan mesafe/bilgi", VariableCategory.Rapor, VariableType.Independent, "-3,24(35,57)", order: 38),
+            new("FROMTHEBASETOPLEVEL", "Temel Üst Kotu Bilgisi", "Temel üst kotundan mesafe/bilgi", VariableCategory.Rapor, VariableType.Dependent, "-3,24(35,57)", order: 38),
             new("FORMATİONTYPE", "Formasyon Tipi", "Formasyon tanımı", VariableCategory.Rapor, VariableType.Independent, "Pendik Formasyonu (Dp)", order: 39),
             new("DRILLER", "Sondör Adı Soyadı", "Sondör adı soyadı", VariableCategory.Rapor, VariableType.Independent, "VURAL ÖNCÜ", order: 40),
             new("DRİLLİNGDATE", "Sondaj Tarihi", "Sondaj yapılma tarihi", VariableCategory.Rapor, VariableType.Independent, "", order: 41),
@@ -91,8 +90,7 @@ public class VariableService : IVariableService
             new("ELASTİCİTYMODULUS1S1", "Elastisite Modülü 1. Tabaka 1. Serim", "Elastisite modülü (1. tabaka 1. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 90),
             new("ELASTİCİTYMODULUS2S1", "Elastisite Modülü 2. Tabaka 1. Serim", "Elastisite modülü (2. tabaka 1. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 91),
             new("ELASTİCİTYMODULUS1S2", "Elastisite Modülü 1. Tabaka 2. Serim", "Elastisite modülü (1. tabaka 2. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 92),
-            new("ELASTİCİTYMODULUS2S2", "Elastisite Modülü 2. Tabaka 2. Serim", "Elastisite modülü (2. tabaka 2. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 93),
-            new("AREAOFSTUDYFORMATIONTYPE", "İnceleme Alanı Formasyon Tipi", "İnceleme Alanı Formasyon Tipi", VariableCategory.Rapor, VariableType.Independent, "İnceleme alanında Pendik Formasyonu-Kartal Üyesi (Dpk) ", order: 94)
+            new("ELASTİCİTYMODULUS2S2", "Elastisite Modülü 2. Tabaka 2. Serim", "Elastisite modülü (2. tabaka 2. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 93)
         };
 
         return list.OrderBy(x => x.Order).ToList();

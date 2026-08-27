@@ -306,70 +306,136 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         if (seriesList.Count == 0) return 0;
         int totalReplacements = 0;
 
-        var tables = body.Descendants<Table>().ToList();
-        foreach (var table in tables)
+        // Body'nin doğrudan çocuklarını liste olarak al (tablolar ve paragraflar karışık)
+        var bodyChildren = body.ChildElements.ToList();
+
+        foreach (var bodyChild in bodyChildren)
         {
+            if (bodyChild is not Table table) continue;
+
             var rows = table.Elements<TableRow>().ToList();
             if (rows.Count == 0) continue;
 
-            // Tabloda dinamik VS30/Serim/Tabaka etiketleri var mı?
-            int firstDynamicIdx = -1;
-            int lastDynamicIdx = -1;
+            // Bu tabloda {{H}} veya {{LAYER_}} içeren tabaka şablonu var mı?
+            bool hasLayerTemplate = rows.Any(r =>
+                r.InnerText.Contains("{{H}}") ||
+                r.InnerText.Contains("{{LAYER_") ||
+                r.InnerText.Contains("{{TABAKA_"));
 
-            for (int r = 0; r < rows.Count; r++)
+            if (!hasLayerTemplate) continue;
+
+            // Tablonun ardından gelen başlık paragrafını bul
+            // Örn: "Tablo 18b: Masw{{SERIES_NO}} Vs ve Vs30 değerlendirme sonuç tablosu"
+            Paragraph? titleParagraph = null;
+            var nextSib = table.NextSibling();
+            while (nextSib != null)
             {
-                string rText = rows[r].InnerText;
-                if (rText.Contains("{{SERIES_") || rText.Contains("{{SERIM_") ||
-                    rText.Contains("{{LAYER_") || rText.Contains("{{TABAKA_"))
+                if (nextSib is Paragraph nextPara)
                 {
-                    if (firstDynamicIdx == -1) firstDynamicIdx = r;
-                    lastDynamicIdx = r;
+                    string pText = nextPara.InnerText;
+                    if (pText.Contains("{{SERIES_") || pText.Contains("{{SERIM_"))
+                        titleParagraph = nextPara;
+                    break;
                 }
+                nextSib = nextSib.NextSibling();
             }
 
-            if (firstDynamicIdx == -1 || lastDynamicIdx == -1) continue;
-
-            // firstDynamicIdx ile lastDynamicIdx arasındaki TÜM satırlar (örneğin "Vs ortalama(m/s)" başlığı dahil) şablon bloğudur
-            var templateBlockRows = rows.Skip(firstDynamicIdx).Take(lastDynamicIdx - firstDynamicIdx + 1).ToList();
-            var anchor = templateBlockRows[0];
-
-            for (int i = 0; i < seriesList.Count; i++)
+            // Her serim için tam tabloyu + başlık paragrafını klonla
+            foreach (var s in seriesList)
             {
-                var s = seriesList[i];
+                // --- 1. Tabloyu klonla ---
+                var clonedTable = (Table)table.CloneNode(true);
+                var clonedRows = clonedTable.Elements<TableRow>().ToList();
 
-                foreach (var templateRow in templateBlockRows)
+                // Şablon tabaka satırını bul ({{H}} veya {{LAYER_}} içeren)
+                var templateDataRow = clonedRows.FirstOrDefault(r =>
+                    r.InnerText.Contains("{{H}}") ||
+                    r.InnerText.Contains("{{LAYER_") ||
+                    r.InnerText.Contains("{{TABAKA_"));
+
+                if (templateDataRow != null)
                 {
-                    string rText = templateRow.InnerText;
-                    bool isLayerRow = rText.Contains("{{LAYER_") || rText.Contains("{{TABAKA_");
+                    // Tablo tipi belirleme: {{H}} içeriyorsa h tablosu (df kontrolü yapılır),
+                    // içermiyorsa LAYER_RANGE tablosu (tüm tabakalar her zaman gösterilir)
+                    bool isHTable = templateDataRow.InnerText.Contains("{{H}}");
 
-                    if (isLayerRow)
+                    if (isHTable)
                     {
-                        // Her tabaka için 1 satır çoğaltılır
+                        // H tablosu: df >= layer1.EndDepth ise 1. tabaka satır üretilmez
+                        double sumThickness = 0;
+                        bool firstValidInserted = false;
+
                         for (int j = 0; j < s.Layers.Count; j++)
                         {
                             var l = s.Layers[j];
-                            var newRow = (TableRow)templateRow.CloneNode(true);
-                            var replacements = GetSeriesReplacementsDictionary(s, l);
-                            totalReplacements += ProcessElementContainers(newRow, replacements, replacedKeys);
-                            table.InsertBefore(newRow, anchor);
+                            double h_i;
+
+                            if (j == 0)
+                                h_i = Math.Max(0, l.EndDepth - s.Df);
+                            else if (j < s.Layers.Count - 1)
+                                h_i = Math.Max(0, l.EndDepth - s.Layers[j - 1].EndDepth);
+                            else
+                                h_i = Math.Max(0, 30.0 - sumThickness);
+
+                            sumThickness += h_i;
+
+                            // İlk tabaka hariç tutuluyorsa satır üretme
+                            if (j == 0 && h_i <= 0) continue;
+
+                            bool isFirstRow = !firstValidInserted;
+                            firstValidInserted = true;
+
+                            var newRow = (TableRow)templateDataRow.CloneNode(true);
+                            var layerReplacements = GetSeriesReplacementsDictionary(s, l, h_i, isFirstRow);
+                            totalReplacements += ProcessElementContainers(newRow, layerReplacements, replacedKeys);
+                            clonedTable.InsertBefore(newRow, templateDataRow);
                         }
                     }
                     else
                     {
-                        // Serim başlık veya alt başlık satırı: Her serim için 1 kez çoğaltılır (Vs ortalama başlığı üstte kalır)
-                        var newRow = (TableRow)templateRow.CloneNode(true);
-                        var replacements = GetSeriesReplacementsDictionary(s);
-                        totalReplacements += ProcessElementContainers(newRow, replacements, replacedKeys);
-                        table.InsertBefore(newRow, anchor);
+                        // LAYER_RANGE / LAYER_VS tablosu: df'den bağımsız, kullanıcının girdiği
+                        // tüm tabakalar her zaman gösterilir (1. tabaka da dahil)
+                        for (int j = 0; j < s.Layers.Count; j++)
+                        {
+                            var l = s.Layers[j];
+                            var newRow = (TableRow)templateDataRow.CloneNode(true);
+                            var layerReplacements = GetSeriesReplacementsDictionary(s, l, 0, false);
+                            totalReplacements += ProcessElementContainers(newRow, layerReplacements, replacedKeys);
+                            clonedTable.InsertBefore(newRow, templateDataRow);
+                        }
                     }
+
+                    // Şablon satırını sil (artık genişletildi)
+                    templateDataRow.Remove();
+                }
+
+                // Serim düzeyi değişkenlerini klonlanan tablonun geri kalanına uygula (başlık satırı vs.)
+                var seriesOnlyReplacements = GetSeriesReplacementsDictionary(s);
+                foreach (var row in clonedTable.Elements<TableRow>())
+                {
+                    // Tabaka satırları zaten dolduruldu; sadece kalan satırları işle
+                    totalReplacements += ProcessElementContainers(row, seriesOnlyReplacements, replacedKeys);
+                }
+
+                // Klonlanmış tabloyu orijinalin önüne ekle
+                body.InsertBefore(clonedTable, table);
+                totalReplacements++;
+
+                // --- 2. Başlık paragrafını klonla ---
+                if (titleParagraph != null)
+                {
+                    var clonedPara = (Paragraph)titleParagraph.CloneNode(true);
+                    totalReplacements += ReplaceInParagraph(clonedPara, seriesOnlyReplacements, replacedKeys);
+                    body.InsertBefore(clonedPara, table);
                 }
             }
 
-            // Orijinal şablon satırlarını temizle
-            foreach (var templateRow in templateBlockRows)
-            {
-                templateRow.Remove();
-            }
+            // Orijinal şablon tablosunu kaldır
+            table.Remove();
+
+            // Orijinal başlık paragrafını kaldır
+            if (titleParagraph != null)
+                titleParagraph.Remove();
         }
 
         return totalReplacements;
@@ -443,7 +509,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
 
     private static readonly System.Globalization.CultureInfo TrCulture = new System.Globalization.CultureInfo("tr-TR");
 
-    private Dictionary<string, string> GetSeriesReplacementsDictionary(Vs30SeriesItem s, Vs30LayerItem? layer = null)
+    private Dictionary<string, string> GetSeriesReplacementsDictionary(Vs30SeriesItem s, Vs30LayerItem? layer = null, double layerH = 0, bool isFirstValidRow = false)
     {
         string vs30Digits = new string(s.Vs30Result.Where(c => char.IsDigit(c) || c == '.' || c == ',').ToArray()).Replace(',', '.');
         string vs30CleanNum = double.TryParse(vs30Digits, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedVs)
@@ -508,8 +574,8 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             ["SERIES_A"] = aStr,
             ["SERIM_A"] = aStr,
             ["A"] = aStr,
-            ["SERIES_A_FORMULA"] = $"68*({vs30CleanNum})-0,6 = {aStr}",
-            ["SERIES_A_FULL"] = $"A{s.SeriesNumber} = 68*({vs30CleanNum})-0,6 = {aStr}",
+            ["SERIES_A_FORMULA"] = $"68x{vs30CleanNum}^(-0,6) = {aStr}",
+            ["SERIES_A_FULL"] = $"A{s.SeriesNumber} = 68x{vs30CleanNum}^(-0,6) = {aStr}",
 
             ["T0"] = s.T0,
             ["SERIES_T0"] = s.T0,
@@ -526,6 +592,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             string startStr = layer.StartDepth.ToString("F2", TrCulture);
             string endStr = layer.EndDepth.ToString("F2", TrCulture);
             string vsStr = layer.Velocity.ToString("F0", TrCulture);
+            string hStr = layerH.ToString("F2", TrCulture);
 
             dict["LAYER_NO"] = layer.LayerNumber.ToString();
             dict["TABAKA_NO"] = layer.LayerNumber.ToString();
@@ -546,6 +613,22 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             dict["TABAKA_VS"] = vsStr;
             dict["LAYER_VELOCITY"] = vsStr;
             dict["TABAKA_HIZ"] = vsStr;
+
+            // {{H}} — tabaka yüksekliği (Görev 6)
+            dict["H"] = hStr;
+            dict["LAYER_H"] = hStr;
+            dict["TABAKA_H"] = hStr;
+
+            // SERIES_RESULT ve VS30 yalnızca ilk geçerli tabaka satırında dolu (Görev 6)
+            if (!isFirstValidRow)
+            {
+                dict["SERIES_RESULT"] = string.Empty;
+                dict["SERIM_SONUC"] = string.Empty;
+                dict["SERIES_VS30"] = string.Empty;
+                dict["SERIM_VS30"] = string.Empty;
+                dict["SERIES_VS30_NUM"] = string.Empty;
+                dict["SERIES_VS30_VAL"] = string.Empty;
+            }
         }
 
         return dict;
