@@ -3,4 +3,5 @@
   <Project Path="WordRegulator.Application/WordRegulator.Application.csproj" />
   <Project Path="WordRegulator.Infrastructure/WordRegulator.Infrastructure.csproj" />
   <Project Path="WordRegulatorApp/WordRegulatorApp.csproj" />
+  <Project Path="WordRegulator.Admin/WordRegulator.Admin.csproj" />
 </Solution>

@@ -1,0 +1,173 @@
+<Window x:Class="WordRegulatorApp.Views.LicenseKeyWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="WordRegulator — Lisans Aktivasyonu"
+        Height="480" Width="520"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent">
+
+    <Window.Resources>
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#2D7DD2"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="0,14"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="10">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1A6ABF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1558A0"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#4A4A5A"/>
+                                <Setter Property="Foreground" Value="#888"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="LicenseTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="#1E1E2E"/>
+            <Setter Property="Foreground" Value="#E0E0FF"/>
+            <Setter Property="CaretBrush" Value="#2D7DD2"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="BorderBrush" Value="#3A3A5A"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Padding" Value="14,12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#2D7DD2"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <!-- Ana pencere çerçevesi -->
+    <Border CornerRadius="16" ClipToBounds="True">
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#12121E" Offset="0"/>
+                <GradientStop Color="#1A1A2E" Offset="1"/>
+            </LinearGradientBrush>
+        </Border.Background>
+        <Border.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="0" Opacity="0.7"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Başlık Çubuğu (sürüklenebilir) -->
+            <Border Grid.Row="0" Background="#0D0D1A" CornerRadius="16,16,0,0"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <Grid Margin="20,14">
+                    <TextBlock Text="WordRegulator" Foreground="#AAAACC"
+                               FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                    <Button Content="✕" HorizontalAlignment="Right"
+                            Background="Transparent" BorderThickness="0"
+                            Foreground="#666688" FontSize="14" Cursor="Hand"
+                            Click="CloseButton_Click"/>
+                </Grid>
+            </Border>
+
+            <!-- İçerik -->
+            <StackPanel Grid.Row="1" Margin="40,30,40,20" VerticalAlignment="Center">
+
+                <!-- İkon -->
+                <Border Width="64" Height="64" CornerRadius="16" HorizontalAlignment="Center" Margin="0,0,0,20">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#2D7DD2" Offset="0"/>
+                            <GradientStop Color="#1A4A8A" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <TextBlock Text="🔑" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+
+                <TextBlock Text="Lisans Aktivasyonu"
+                           Foreground="White" FontFamily="Segoe UI" FontSize="22" FontWeight="Bold"
+                           HorizontalAlignment="Center" Margin="0,0,0,8"/>
+
+                <TextBlock Text="Bu uygulamayı kullanmak için geçerli bir lisans anahtarı girmeniz gerekmektedir."
+                           Foreground="#8888AA" FontFamily="Segoe UI" FontSize="12" TextWrapping="Wrap"
+                           HorizontalAlignment="Center" TextAlignment="Center" Margin="0,0,0,30"/>
+
+                <!-- Lisans anahtar girişi -->
+                <TextBlock Text="FORMAT: WORD-XXXX-XXXX-XXXX" Foreground="#5566AA"
+                           FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold"
+                           Margin="2,0,0,6"/>
+                <TextBox x:Name="LicenseKeyTextBox"
+                         Style="{StaticResource LicenseTextBox}"
+                         MaxLength="19"
+                         CharacterCasing="Upper"
+                         TextChanged="LicenseKeyTextBox_TextChanged"
+                         ToolTip="Örn: WORD-A1B2-C3D4-E5F6"/>
+
+                <TextBlock x:Name="FormatHint"
+                           Text="Format: WORD-XXXX-XXXX-XXXX"
+                           Foreground="#444466" FontFamily="Segoe UI" FontSize="11"
+                           Margin="2,6,0,0"/>
+
+                <!-- Hata mesajı -->
+                <Border x:Name="ErrorBorder" Background="#3A1A1A" CornerRadius="8"
+                        Margin="0,16,0,0" Padding="12,10" Visibility="Collapsed">
+                    <TextBlock x:Name="ErrorText" Foreground="#FF6B6B"
+                               FontFamily="Segoe UI" FontSize="12" TextWrapping="Wrap"/>
+                </Border>
+            </StackPanel>
+
+            <!-- Buton -->
+            <Grid Grid.Row="2" Margin="40,0,40,32">
+                <Button x:Name="ActivateButton"
+                        Style="{StaticResource PrimaryButton}"
+                        Content="Lisansı Etkinleştir"
+                        IsEnabled="False"
+                        Click="ActivateButton_Click"/>
+
+                <!-- Yükleniyor göstergesi -->
+                <Border x:Name="LoadingOverlay" Visibility="Collapsed"
+                        Background="#DD12121E" CornerRadius="10">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="Doğrulanıyor..." Foreground="#AAAACC"
+                                   FontFamily="Segoe UI" FontSize="13" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

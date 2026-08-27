@@ -1,0 +1,50 @@
+<Window x:Class="WordRegulator.Admin.NewLicenseDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Yeni Lisans"
+        Height="280" Width="420"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent">
+
+    <Border CornerRadius="12" ClipToBounds="True">
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#12121E" Offset="0"/>
+                <GradientStop Color="#1A1A2E" Offset="1"/>
+            </LinearGradientBrush>
+        </Border.Background>
+        <Border.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="0" Opacity="0.8"/>
+        </Border.Effect>
+
+        <StackPanel Margin="28">
+            <TextBlock Text="Yeni Lisans Oluştur" Foreground="White"
+                       FontFamily="Segoe UI" FontSize="18" FontWeight="Bold" Margin="0,0,0,20"/>
+
+            <TextBlock Text="MÜŞTERİ ADI" Foreground="#4455AA" FontFamily="Segoe UI"
+                       FontSize="9" FontWeight="Bold" Margin="2,0,0,5"/>
+            <TextBox x:Name="CustomerNameBox" Background="#1E1E30" Foreground="#DDDDFF"
+                     BorderBrush="#3A3A5A" BorderThickness="1" Padding="10,8"
+                     FontFamily="Segoe UI" FontSize="13" Margin="0,0,0,16"/>
+
+            <TextBlock Text="ABONELİK BİTİŞ TARİHİ" Foreground="#4455AA" FontFamily="Segoe UI"
+                       FontSize="9" FontWeight="Bold" Margin="2,0,0,5"/>
+            <DatePicker x:Name="ExpiryPicker" Background="#1E1E30" Foreground="#DDDDFF"
+                        BorderBrush="#3A3A5A" FontFamily="Segoe UI" Margin="0,0,0,24"/>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="İptal" Click="Cancel_Click"
+                        Background="#2A2A4A" Foreground="#AAAACC"
+                        BorderThickness="0" Padding="16,8" Cursor="Hand"
+                        FontFamily="Segoe UI" Margin="0,0,10,0"/>
+                <Button Content="Oluştur &amp; Kopyala" Click="Create_Click"
+                        Background="#2D7DD2" Foreground="White"
+                        BorderThickness="0" Padding="16,8" Cursor="Hand"
+                        FontFamily="Segoe UI" FontWeight="SemiBold"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>
