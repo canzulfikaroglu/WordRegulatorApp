@@ -53,6 +53,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                     {
                         replacementCount += ProcessDynamicWellTables(mainPart.Document.Body, wells, replacedKeys);
                         replacementCount += ProcessDynamicWellParagraphs(mainPart.Document.Body, wells, replacedKeys);
+                        replacementCount += ProcessDynamicPressuremeterTables(mainPart.Document.Body, wells, replacedKeys);
                     }
 
                     if (vs30Series != null)
@@ -179,7 +180,10 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 var rowText = row.InnerText;
                 if (string.IsNullOrEmpty(rowText)) continue;
 
-                bool isDynamicRow = rowText.Contains("{{WELL_") || rowText.Contains("{{SONDAJ_") || rowText.Contains("{{SK_");
+                // Presiyometre satırları ({{SONDAJ_PM_}} / {{SK_PM_}}) bu metodun kapsamı dışında;
+                // ayrı ProcessDynamicPressuremeterTables ile işlenir.
+                bool isDynamicRow = (rowText.Contains("{{WELL_") || rowText.Contains("{{SONDAJ_") || rowText.Contains("{{SK_"))
+                                 && !rowText.Contains("{{SONDAJ_PM_") && !rowText.Contains("{{SK_PM_");
                 if (!isDynamicRow) continue;
 
                 // Bu tablo satırı Yeraltı Suyu Ölçüm değişkenleri (tarih / su derinliği) içeriyor mu?
@@ -249,8 +253,10 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         foreach (var p in allParagraphs)
         {
             var pText = p.InnerText;
+            // Presiyometre paragrafları ({{SONDAJ_PM_}} / {{SK_PM_}}) bu metodun kapsamı dışında.
             bool isDynamic = !string.IsNullOrEmpty(pText) &&
-                             (pText.Contains("{{WELL_") || pText.Contains("{{SONDAJ_") || pText.Contains("{{SK_"));
+                             (pText.Contains("{{WELL_") || pText.Contains("{{SONDAJ_") || pText.Contains("{{SK_"))
+                             && !pText.Contains("{{SONDAJ_PM_") && !pText.Contains("{{SK_PM_");
 
             if (isDynamic)
             {
@@ -507,10 +513,118 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         return totalReplacements;
     }
 
+    // =====================================================================
+    // Presiyometre Deneyi Tablosu Dinamik İşleme
+    // Şablon tabloşunda {{SONDAJ_PM_}} prefix'li değişken varsa,
+    // presiyometre verisi olan her kuyu için satırlar çoğaltılır.
+    // =====================================================================
+    private int ProcessDynamicPressuremeterTables(
+        Body body,
+        IEnumerable<DrillingWellItem> wells,
+        HashSet<string> replacedKeys)
+    {
+        var wellList = wells.Where(w => w.HasPressuremeterTest && w.PressuremeterRows.Count > 0).ToList();
+        if (wellList.Count == 0) return 0;
+
+        int totalReplacements = 0;
+
+        var tables = body.Descendants<Table>().ToList();
+        foreach (var table in tables)
+        {
+            var rows = table.Elements<TableRow>().ToList();
+            TableRow? templateRow = null;
+
+            foreach (var row in rows)
+            {
+                var rowText = row.InnerText;
+                if (rowText.Contains("{{SONDAJ_PM_") || rowText.Contains("{{SK_PM_"))
+                {
+                    templateRow = row;
+                    break;
+                }
+            }
+
+            if (templateRow == null) continue;
+
+            // Şablon satır öncesine tüm presiyometre verisi olan kuyuların satırlarını ekle
+            foreach (var w in wellList)
+            {
+                bool isFirstRowOfWell = true;
+                foreach (var pmRow in w.PressuremeterRows)
+                {
+                    var newRow = (TableRow)templateRow.CloneNode(true);
+                    var pmReplacements = GetPressuremeterReplacementsDictionary(w, pmRow, isFirstRowOfWell);
+                    totalReplacements += ProcessElementContainers(newRow, pmReplacements, replacedKeys);
+                    table.InsertBefore(newRow, templateRow);
+                    isFirstRowOfWell = false;
+                }
+            }
+
+            // Orijinal şablon satırını kaldır
+            templateRow.Remove();
+        }
+
+        return totalReplacements;
+    }
+
+    private Dictionary<string, string> GetPressuremeterReplacementsDictionary(
+        DrillingWellItem w,
+        PressuremeterRowItem row,
+        bool isFirstRowOfWell)
+    {
+        string depth = row.Depth;
+        string pl    = row.LimitPressure;
+        string plNet = row.NetLimitPressure;
+        string em    = row.ElasticityModulus;
+
+        // Sondaj Adı ve Zemin Kotu sadece ilk satırda yazılır (tablo birleşim görünümü için)
+        string wellName   = isFirstRowOfWell ? w.WellName : string.Empty;
+        string groundKot  = isFirstRowOfWell ? w.GroundKot : string.Empty;
+
+        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["SONDAJ_PM_NAME"]       = wellName,
+            ["SONDAJ_PM_NO"]         = wellName,
+            ["SK_PM_NAME"]           = wellName,
+            ["SK_PM_NO"]             = wellName,
+            ["SONDAJ_PM_ZEMIN_KOTU"] = groundKot,
+            ["SK_PM_ZEMIN_KOTU"]     = groundKot,
+            ["SONDAJ_PM_DEPTH"]      = depth,
+            ["SONDAJ_PM_DERINLIK"]   = depth,
+            ["SK_PM_DEPTH"]          = depth,
+            ["SK_PM_DERINLIK"]       = depth,
+            ["SONDAJ_PM_PL"]         = pl,
+            ["SK_PM_PL"]             = pl,
+            ["SONDAJ_PM_PL_NET"]     = plNet,
+            ["SK_PM_PL_NET"]         = plNet,
+            ["SONDAJ_PM_EM"]         = em,
+            ["SK_PM_EM"]             = em,
+        };
+    }
+
+
+
     private static readonly System.Globalization.CultureInfo TrCulture = new System.Globalization.CultureInfo("tr-TR");
 
     private Dictionary<string, string> GetSeriesReplacementsDictionary(Vs30SeriesItem s, Vs30LayerItem? layer = null, double layerH = 0, bool isFirstValidRow = false)
     {
+        // Yüzeyde elde edilen VS30 (elle girilmiş); boşsa hesaplanan değeri fallback olarak kullan
+        string surfaceVs30Raw = string.IsNullOrWhiteSpace(s.SurfaceVs30) ? s.Vs30Result : s.SurfaceVs30.Trim();
+        string surfaceVs30WithMsn = surfaceVs30Raw;
+        if (!string.IsNullOrWhiteSpace(surfaceVs30WithMsn))
+        {
+            if (surfaceVs30WithMsn.EndsWith("m/s", StringComparison.OrdinalIgnoreCase) && !surfaceVs30WithMsn.EndsWith("m/sn", StringComparison.OrdinalIgnoreCase))
+                surfaceVs30WithMsn = surfaceVs30WithMsn[..^3] + "m/sn";
+            else if (!surfaceVs30WithMsn.EndsWith("m/sn", StringComparison.OrdinalIgnoreCase))
+                surfaceVs30WithMsn = $"{surfaceVs30WithMsn} m/sn";
+        }
+
+        string t0Formatted = !string.IsNullOrWhiteSpace(s.T0) ? s.T0 : "—";
+        string seismicSummaryText = $"Sismik Serim-{s.SeriesNumber} için; yüzeyden Vs30= {surfaceVs30WithMsn}, Bu serimden alınan kayıtlardan yapılan hesaplamalar sonucu zemin hakim titreşim periyodunun değeri T0 = {t0Formatted} sn olarak hesaplanmıştır.";
+
+        string aStr = s.AValue.ToString("F2", TrCulture);
+
+        // Hesaplanan VS30 — sayısal kısmını temizle
         string vs30Digits = new string(s.Vs30Result.Where(c => char.IsDigit(c) || c == '.' || c == ',').ToArray()).Replace(',', '.');
         string vs30CleanNum = double.TryParse(vs30Digits, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedVs)
             ? Math.Round(parsedVs).ToString(TrCulture)
@@ -519,16 +633,11 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         string vs30WithMsn = s.Vs30Result;
         if (!string.IsNullOrWhiteSpace(vs30WithMsn))
         {
-            if (vs30WithMsn.EndsWith("m/s", StringComparison.OrdinalIgnoreCase))
-                vs30WithMsn = vs30WithMsn.Substring(0, vs30WithMsn.Length - 3) + "m/sn";
+            if (vs30WithMsn.EndsWith("m/s", StringComparison.OrdinalIgnoreCase) && !vs30WithMsn.EndsWith("m/sn", StringComparison.OrdinalIgnoreCase))
+                vs30WithMsn = vs30WithMsn[..^3] + "m/sn";
             else if (!vs30WithMsn.EndsWith("m/sn", StringComparison.OrdinalIgnoreCase))
                 vs30WithMsn = $"{vs30WithMsn} m/sn";
         }
-
-        string t0Formatted = !string.IsNullOrWhiteSpace(s.T0) ? s.T0 : "—";
-        string seismicSummaryText = $"Sismik Serim-{s.SeriesNumber} için; yüzeyden Vs30= {vs30WithMsn}, Bu serimden alınan kayıtlardan yapılan hesaplamalar sonucu zemin hakim titreşim periyodunun değeri T0 = {t0Formatted} sn olarak hesaplanmıştır.";
-
-        string aStr = s.AValue.ToString("F2", TrCulture);
 
         var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -730,10 +839,62 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
 
         if (totalReplacements > 0)
         {
-            texts[0].Text = updatedFullText;
-            for (int i = 1; i < texts.Count; i++)
+            if (updatedFullText.Contains('\n'))
             {
-                texts[i].Text = string.Empty;
+                // Çok satırlı replacement: \n'leri Word satır sonu (w:br) olarak ekliyoruz
+                var parts = updatedFullText.Split('\n');
+
+                // texts[0]'a ilk parçayı yaz, diğerlerini temizle
+                texts[0].Text = parts[0];
+                for (int i = 1; i < texts.Count; i++)
+                    texts[i].Text = string.Empty;
+
+                // Birinci Text'in içinde bulunduğu Run (veya ilk ataş)
+                var firstRun = texts[0].Parent;
+                if (firstRun != null)
+                {
+                    // Mevcut run'dan sonraki kardeşi referans olarak al (insert point)
+                    var insertAnchor = firstRun.NextSibling();
+                    var parentEl   = firstRun.Parent;
+
+                    // Her ek parça için: <w:br/> run + metin run
+                    for (int p = 1; p < parts.Length; p++)
+                    {
+                        // Satır sonu runı: <w:r><w:br/></w:r>
+                        var brRun = new Run(new Break());
+
+                        // İsteğe bağlı: mevcut run'un formatını (bold/font vb.) kopyala
+                        var existingRpr = firstRun.Elements<RunProperties>().FirstOrDefault();
+                        if (existingRpr != null)
+                            brRun.PrependChild((RunProperties)existingRpr.CloneNode(true));
+
+                        // Metin runı: <w:r><w:t xml:space="preserve">parça</w:t></w:r>
+                        var textRun = new Run(
+                            new Text(parts[p]) { Space = DocumentFormat.OpenXml.SpaceProcessingModeValues.Preserve });
+                        if (existingRpr != null)
+                            textRun.PrependChild((RunProperties)existingRpr.CloneNode(true));
+
+                        if (parentEl != null)
+                        {
+                            if (insertAnchor == null)
+                            {
+                                parentEl.AppendChild(brRun);
+                                parentEl.AppendChild(textRun);
+                            }
+                            else
+                            {
+                                parentEl.InsertBefore(brRun, insertAnchor);
+                                parentEl.InsertBefore(textRun, insertAnchor);
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                texts[0].Text = updatedFullText;
+                for (int i = 1; i < texts.Count; i++)
+                    texts[i].Text = string.Empty;
             }
         }
 

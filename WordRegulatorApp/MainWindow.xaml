@@ -236,9 +236,13 @@
                                                         <TextBlock Text="Kot Bitiş:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                                         <TextBox Text="{Binding KotEndInput, UpdateSourceTrigger=PropertyChanged}" Width="70" Height="28" Padding="6,4" Style="{StaticResource DarkTextBoxStyle}"/>
                                                     </StackPanel>
-                                                    <StackPanel Orientation="Horizontal">
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
                                                         <TextBlock Text="T0:" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentPurpleBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                                         <TextBox Text="{Binding T0Input, UpdateSourceTrigger=PropertyChanged}" Width="65" Height="28" Padding="6,4" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="Yüzeyde VS30:" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentPurpleBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                        <TextBox Text="{Binding SurfaceVs30Input, UpdateSourceTrigger=PropertyChanged}" Width="75" Height="28" Padding="6,4" Style="{StaticResource DarkTextBoxStyle}" ToolTip="Elle girilen yüzey VS30 değeri (örn: 944,20)"/>
                                                     </StackPanel>
                                                 </StackPanel>
 
@@ -450,14 +454,19 @@
                                                 </StackPanel>
                                             </Grid>
 
-                                            <!-- Sonuç & Kuyu Çökmesi CheckBox -->
+                                            <!-- Sonuç & Presiyometre Deneyi & Kuyu Çökmesi CheckBox -->
                                             <Grid Margin="0,0,0,4">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="8"/>
+                                                    <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0" Text="Açıklama / Sonuç:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                                <CheckBox Grid.Column="1" Content="Kuyu Çökmesi" IsChecked="{Binding IsCollapsed, UpdateSourceTrigger=PropertyChanged}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" VerticalAlignment="Center" Cursor="Hand"/>
+                                                <!-- Presiyometre Deneyi -->
+                                                <CheckBox Grid.Column="1" Content="Presiyometre Deneyi" IsChecked="{Binding HasPressuremeterTest, UpdateSourceTrigger=PropertyChanged}" Foreground="#A5F3FC" FontSize="10" VerticalAlignment="Center" Cursor="Hand"/>
+                                                <!-- Kuyu Çökmesi -->
+                                                <CheckBox Grid.Column="3" Content="Kuyu Çökmesi" IsChecked="{Binding IsCollapsed, UpdateSourceTrigger=PropertyChanged}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" VerticalAlignment="Center" Cursor="Hand"/>
                                             </Grid>
                                             <TextBox Text="{Binding GroundwaterStatus, UpdateSourceTrigger=PropertyChanged}" 
                                                      AcceptsReturn="True"
@@ -475,6 +484,122 @@
                                                     </Style>
                                                 </TextBox.Style>
                                             </TextBox>
+
+                                             <!-- Presiyometre Deneyi Veri Giriş Paneli -->
+                                             <Border Margin="0,2,0,8">
+                                                 <Border.Style>
+                                                     <Style TargetType="Border">
+                                                         <Setter Property="Visibility" Value="Collapsed"/>
+                                                         <Style.Triggers>
+                                                             <DataTrigger Binding="{Binding HasPressuremeterTest}" Value="True">
+                                                                 <Setter Property="Visibility" Value="Visible"/>
+                                                             </DataTrigger>
+                                                         </Style.Triggers>
+                                                     </Style>
+                                                 </Border.Style>
+                                                 <Border Background="#0D1B2A" CornerRadius="8" Padding="10,8" BorderBrush="#2A6496" BorderThickness="1">
+                                                     <StackPanel>
+                                                         <!-- Başlık + Ekle/Sil Butonları -->
+                                                         <Grid Margin="0,0,0,6">
+                                                             <Grid.ColumnDefinitions>
+                                                                 <ColumnDefinition Width="*"/>
+                                                                 <ColumnDefinition Width="Auto"/>
+                                                                 <ColumnDefinition Width="6"/>
+                                                                 <ColumnDefinition Width="Auto"/>
+                                                             </Grid.ColumnDefinitions>
+                                                             <TextBlock Grid.Column="0" Text="🔬 Presiyometre Deneyi Sonuçları" FontSize="11" FontWeight="Bold" Foreground="#A5F3FC" VerticalAlignment="Center"/>
+                                                             <Button Grid.Column="1" Content="+ Satır" Command="{Binding AddPressuremeterRowCommand}" Height="22" Padding="8,0" FontSize="10" FontWeight="Bold" Cursor="Hand">
+                                                                 <Button.Style>
+                                                                     <Style TargetType="Button">
+                                                                         <Setter Property="Background" Value="#1A3A5C"/>
+                                                                         <Setter Property="Foreground" Value="#A5F3FC"/>
+                                                                         <Setter Property="BorderBrush" Value="#2A6496"/>
+                                                                         <Setter Property="BorderThickness" Value="1"/>
+                                                                         <Setter Property="Template">
+                                                                             <Setter.Value>
+                                                                                 <ControlTemplate TargetType="Button">
+                                                                                     <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                                                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                                     </Border>
+                                                                                 </ControlTemplate>
+                                                                             </Setter.Value>
+                                                                         </Setter>
+                                                                         <Style.Triggers>
+                                                                             <Trigger Property="IsMouseOver" Value="True">
+                                                                                 <Setter Property="Background" Value="#245080"/>
+                                                                             </Trigger>
+                                                                         </Style.Triggers>
+                                                                     </Style>
+                                                                 </Button.Style>
+                                                             </Button>
+                                                             <Button Grid.Column="3" Content="− Satır" Command="{Binding RemovePressuremeterRowCommand}" Height="22" Padding="8,0" FontSize="10" FontWeight="Bold" Cursor="Hand">
+                                                                 <Button.Style>
+                                                                     <Style TargetType="Button">
+                                                                         <Setter Property="Background" Value="#3A1A1A"/>
+                                                                         <Setter Property="Foreground" Value="#FCA5A5"/>
+                                                                         <Setter Property="BorderBrush" Value="#7B2020"/>
+                                                                         <Setter Property="BorderThickness" Value="1"/>
+                                                                         <Setter Property="Template">
+                                                                             <Setter.Value>
+                                                                                 <ControlTemplate TargetType="Button">
+                                                                                     <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                                                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                                     </Border>
+                                                                                 </ControlTemplate>
+                                                                             </Setter.Value>
+                                                                         </Setter>
+                                                                         <Style.Triggers>
+                                                                             <Trigger Property="IsMouseOver" Value="True">
+                                                                                 <Setter Property="Background" Value="#5A2020"/>
+                                                                             </Trigger>
+                                                                         </Style.Triggers>
+                                                                     </Style>
+                                                                 </Button.Style>
+                                                             </Button>
+                                                         </Grid>
+
+                                                         <!-- Sütun Başlıkları -->
+                                                         <Grid Margin="0,0,0,4">
+                                                             <Grid.ColumnDefinitions>
+                                                                 <ColumnDefinition Width="*"/>
+                                                                 <ColumnDefinition Width="5"/>
+                                                                 <ColumnDefinition Width="*"/>
+                                                                 <ColumnDefinition Width="5"/>
+                                                                 <ColumnDefinition Width="*"/>
+                                                                 <ColumnDefinition Width="5"/>
+                                                                 <ColumnDefinition Width="*"/>
+                                                             </Grid.ColumnDefinitions>
+                                                             <TextBlock Grid.Column="0" Text="Derinlik (m)" FontSize="9" Foreground="#64B5F6" FontWeight="Bold"/>
+                                                             <TextBlock Grid.Column="2" Text="PL (kg/cm²)" FontSize="9" Foreground="#64B5F6" FontWeight="Bold"/>
+                                                             <TextBlock Grid.Column="4" Text="PL* (kg/cm²)" FontSize="9" Foreground="#64B5F6" FontWeight="Bold"/>
+                                                             <TextBlock Grid.Column="6" Text="Em (kg/cm²)" FontSize="9" Foreground="#64B5F6" FontWeight="Bold"/>
+                                                         </Grid>
+
+                                                         <!-- Satır Listesi -->
+                                                         <ItemsControl ItemsSource="{Binding PressuremeterRows}">
+                                                             <ItemsControl.ItemTemplate>
+                                                                 <DataTemplate DataType="{x:Type vm:PressuremeterRowViewModel}">
+                                                                     <Grid Margin="0,0,0,4">
+                                                                         <Grid.ColumnDefinitions>
+                                                                             <ColumnDefinition Width="*"/>
+                                                                             <ColumnDefinition Width="5"/>
+                                                                             <ColumnDefinition Width="*"/>
+                                                                             <ColumnDefinition Width="5"/>
+                                                                             <ColumnDefinition Width="*"/>
+                                                                             <ColumnDefinition Width="5"/>
+                                                                             <ColumnDefinition Width="*"/>
+                                                                         </Grid.ColumnDefinitions>
+                                                                         <TextBox Grid.Column="0" Text="{Binding Depth, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}" Height="24" Padding="4,2" FontSize="11"/>
+                                                                         <TextBox Grid.Column="2" Text="{Binding LimitPressure, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}" Height="24" Padding="4,2" FontSize="11"/>
+                                                                         <TextBox Grid.Column="4" Text="{Binding NetLimitPressure, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}" Height="24" Padding="4,2" FontSize="11"/>
+                                                                         <TextBox Grid.Column="6" Text="{Binding ElasticityModulus, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}" Height="24" Padding="4,2" FontSize="11"/>
+                                                                     </Grid>
+                                                                 </DataTemplate>
+                                                             </ItemsControl.ItemTemplate>
+                                                         </ItemsControl>
+                                                     </StackPanel>
+                                                 </Border>
+                                             </Border>
 
                                             <!-- Yeraltı Suyu Ölçümleri -->
                                             <Border Background="#20202B" CornerRadius="6" Padding="8,4" Margin="0,2,0,6">
@@ -518,6 +643,31 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                    </Grid>
+                </Border>
+
+                <!-- ================= 🌍 FORMASYON SEÇİMİ ================= -->
+                <Border Background="{StaticResource PanelDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,16" BorderBrush="#14B8A6" BorderThickness="1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                            <Border Background="#14B8A6" CornerRadius="6" Width="28" Height="28" Margin="0,0,10,0">
+                                <TextBlock Text="🌍" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="Formasyon Tipi:" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        
+                        <ComboBox Grid.Column="1" 
+                                  ItemsSource="{Binding FormationList}" 
+                                  SelectedItem="{Binding SelectedFormation}"
+                                  DisplayMemberPath="Name"
+                                  Height="32" 
+                                  VerticalContentAlignment="Center"
+                                  ToolTip="Formasyon tipini seçtiğinizde rapordaki {{FORMATİONTYPE}} ve {{FORMATİONTEXT}} değişkenleri otomatik olarak dolacaktır."/>
                     </Grid>
                 </Border>
 

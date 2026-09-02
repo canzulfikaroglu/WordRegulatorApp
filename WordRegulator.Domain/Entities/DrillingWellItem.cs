@@ -13,4 +13,8 @@ public class DrillingWellItem
     public string StartDate { get; set; } = string.Empty; // Başlangıç Tarihi
     public string FinishDate { get; set; } = string.Empty;// Bitiş Tarihi
     public List<GroundwaterMeasurementItem> Measurements { get; set; } = new(); // Yeraltı suyu ölçüm listesi
+
+    // Presiyometre Deneyi
+    public bool HasPressuremeterTest { get; set; }
+    public List<PressuremeterRowItem> PressuremeterRows { get; set; } = new();
 }

@@ -85,7 +85,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            license.Active = !newState; // Geri al
+            license.Active = !newState; 
             MessageBox.Show($"Güncelleme başarısız:\n{ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }

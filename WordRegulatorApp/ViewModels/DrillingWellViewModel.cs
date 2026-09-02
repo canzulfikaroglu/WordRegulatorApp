@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace WordRegulatorApp.ViewModels;
 
@@ -38,6 +39,12 @@ public partial class DrillingWellViewModel : ObservableObject
     [ObservableProperty]
     private int _selectedMeasurementCount = 1;
 
+    // ===== Presiyometre Deneyi =====
+    [ObservableProperty]
+    private bool _hasPressuremeterTest;
+
+    public ObservableCollection<PressuremeterRowViewModel> PressuremeterRows { get; } = new();
+
     public int[] MeasurementCountOptions { get; } = new[] { 1, 2, 3, 4, 5 };
 
     public ObservableCollection<GroundwaterMeasurementViewModel> Measurements { get; } = new();
@@ -67,6 +74,11 @@ public partial class DrillingWellViewModel : ObservableObject
             OnPropertyChanged(nameof(SelectedMeasurementCount));
         }
         SyncMeasurements();
+        WellChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    partial void OnHasPressuremeterTestChanged(bool value)
+    {
         WellChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -168,6 +180,33 @@ public partial class DrillingWellViewModel : ObservableObject
     }
 
     private void OnMeasurementItemChanged(object? sender, EventArgs e)
+    {
+        WellChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // ===== Presiyometre Satır Komutları =====
+
+    [RelayCommand]
+    private void AddPressuremeterRow()
+    {
+        int newIdx = PressuremeterRows.Count + 1;
+        var row = new PressuremeterRowViewModel(newIdx);
+        row.RowChanged += OnPressuremeterRowChanged;
+        PressuremeterRows.Add(row);
+        WellChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void RemovePressuremeterRow()
+    {
+        if (PressuremeterRows.Count == 0) return;
+        var last = PressuremeterRows.Last();
+        last.RowChanged -= OnPressuremeterRowChanged;
+        PressuremeterRows.RemoveAt(PressuremeterRows.Count - 1);
+        WellChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnPressuremeterRowChanged(object? sender, EventArgs e)
     {
         WellChanged?.Invoke(this, EventArgs.Empty);
     }

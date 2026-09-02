@@ -29,6 +29,10 @@ public partial class Vs30SeriesViewModel : ObservableObject
     [ObservableProperty]
     private string _t0Input = "";
 
+    /// <summary>Yüzeyde ölçülen VS30 değeri (labaratuvardan elle girilir, m/sn)</summary>
+    [ObservableProperty]
+    private string _surfaceVs30Input = "";
+
     /// <summary>Hesaplanan Df: (kotOrtalama) - baseTopLevel. Temel Üst Kotu değişkeninden alınır.</summary>
     [ObservableProperty]
     private string _dfDisplay = "0,00 m";
@@ -220,6 +224,11 @@ public partial class Vs30SeriesViewModel : ObservableObject
     }
 
     partial void OnT0InputChanged(string value)
+    {
+        SeriesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    partial void OnSurfaceVs30InputChanged(string value)
     {
         SeriesChanged?.Invoke(this, EventArgs.Empty);
     }

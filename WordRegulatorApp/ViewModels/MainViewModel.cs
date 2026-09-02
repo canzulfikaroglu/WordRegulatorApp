@@ -87,6 +87,28 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<DrillingWellViewModel> DrillingWells { get; } = new();
 
+    // ================= FORMASYON DROPDOWN =================
+    public IReadOnlyList<WordRegulator.Domain.Entities.FormationDefinition> FormationList { get; }
+        = WordRegulator.Application.Services.FormationRepository.All;
+
+    [ObservableProperty]
+    private WordRegulator.Domain.Entities.FormationDefinition? _selectedFormation;
+
+    partial void OnSelectedFormationChanged(WordRegulator.Domain.Entities.FormationDefinition? value)
+    {
+        if (value == null) return;
+
+        // FORMATİONTYPE → formasyon adı
+        var typeVar = Variables.FirstOrDefault(v => string.Equals(v.Key, "FORMAŞİONTYPE", StringComparison.OrdinalIgnoreCase)
+                                                 || string.Equals(v.Key, "FORMATİONTYPE", StringComparison.OrdinalIgnoreCase));
+        if (typeVar != null) { typeVar.Value = value.Name; _userOverriddenKeys.Add(typeVar.Key); }
+
+        // FORMİONTEXT → formasyon açıklaması
+        var textVar = Variables.FirstOrDefault(v => string.Equals(v.Key, "FORMAŞİONTEXT", StringComparison.OrdinalIgnoreCase)
+                                                 || string.Equals(v.Key, "FORMATİONTEXT", StringComparison.OrdinalIgnoreCase));
+        if (textVar != null) { textVar.Value = value.Description; _userOverriddenKeys.Add(textVar.Key); }
+    }
+
     public ObservableCollection<VariableItemViewModel> Variables { get; } = new();
     public ICollectionView FilteredVariablesView { get; }
 
@@ -335,6 +357,14 @@ public partial class MainViewModel : ObservableObject
             {
                 MeasurementDate = m.MeasurementDate,
                 WaterDepth = m.WaterDepth
+            }).ToList(),
+            HasPressuremeterTest = w.HasPressuremeterTest,
+            PressuremeterRows = w.PressuremeterRows.Select(r => new WordRegulator.Domain.Entities.PressuremeterRowItem
+            {
+                Depth = r.Depth,
+                LimitPressure = r.LimitPressure,
+                NetLimitPressure = r.NetLimitPressure,
+                ElasticityModulus = r.ElasticityModulus
             }).ToList()
         });
 
@@ -500,6 +530,15 @@ public partial class MainViewModel : ObservableObject
     {
         if (obj is not VariableItemViewModel item) return false;
 
+        // Özel UI kontrolleri eklenen değişkenleri gizle (Formasyon Dropdown için)
+        if (string.Equals(item.Key, "FORMATİONTYPE", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.Key, "FORMAŞİONTYPE", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.Key, "FORMATİONTEXT", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.Key, "FORMAŞİONTEXT", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         if (!string.IsNullOrWhiteSpace(SearchText))
         {
             var search = SearchText.Trim();
@@ -635,10 +674,20 @@ public partial class MainViewModel : ObservableObject
                 {
                     MeasurementDate = m.MeasurementDate,
                     WaterDepth = m.WaterDepth
+                }).ToList(),
+                HasPressuremeterTest = w.HasPressuremeterTest,
+                PressuremeterRows = w.PressuremeterRows.Select(r => new WordRegulator.Domain.Entities.PressuremeterRowItem
+                {
+                    Depth = r.Depth,
+                    LimitPressure = r.LimitPressure,
+                    NetLimitPressure = r.NetLimitPressure,
+                    ElasticityModulus = r.ElasticityModulus
                 }).ToList()
             }).ToList();
 
-            var wellReplacements = _variableService.GenerateDrillingWellReplacements(domainWells);
+            // baseTopLevel'ı SKBASEDEEP için wellReplacements'a da ilet
+            double baseTopLevelForWells = GetBaseTopLevel(out _);
+            var wellReplacements = _variableService.GenerateDrillingWellReplacements(domainWells, baseTopLevelForWells);
             foreach (var kvp in wellReplacements)
             {
                 replacements[kvp.Key] = kvp.Value;
@@ -737,6 +786,7 @@ public partial class MainViewModel : ObservableObject
                     AValue = aVal,
                     T0 = series.T0Input,
                     Vs30Result = series.Vs30Result,
+                    SurfaceVs30 = series.SurfaceVs30Input,
                     Formula = formula,
                     FormulaFull = formulaFull,
                     Layers = seriesDomainLayers
@@ -801,6 +851,32 @@ public partial class MainViewModel : ObservableObject
             replacements["MAXMINVS30"] = maxMinVs30Str;
             replacements["MAX_MIN_VS30"] = maxMinVs30Str;
             replacements["VS30_MAX_MIN"] = maxMinVs30Str;
+
+            // ===== Yüzeyde ölçülen VS30 değerleri =====
+            var surfaceVs30Parts = new List<string>();
+            foreach (var s in Vs30Series)
+            {
+                int sn = s.SeriesNumber;
+                string surfVal = string.IsNullOrWhiteSpace(s.SurfaceVs30Input) ? "—" : s.SurfaceVs30Input.Trim();
+                // Birim ekle (m/sn yoksa ekle)
+                string surfWithUnit = surfVal == "—" ? "—"
+                    : (surfVal.EndsWith("m/sn", StringComparison.OrdinalIgnoreCase) || surfVal.EndsWith("m/s", StringComparison.OrdinalIgnoreCase)
+                       ? surfVal : $"{surfVal} m/sn");
+
+                replacements[$"VS30_S{sn}_YUZEY"] = surfWithUnit;   // {{VS30_S1_YUZEY}}
+                replacements[$"SURFACE_VS30_{sn}"] = surfWithUnit;   // {{SURFACE_VS30_1}}
+                replacements[$"VS30_YUZEY_{sn}"] = surfWithUnit;     // {{VS30_YUZEY_1}}
+
+                if (surfVal != "—") surfaceVs30Parts.Add(surfVal);
+            }
+
+            // Birleşik yüzeyde değeri: "944,20 / 931,70 m/sn" — {{VS30_ALL_SURFACE}}
+            string combinedSurface = surfaceVs30Parts.Count > 0
+                ? string.Join(" / ", surfaceVs30Parts) + " m/sn"
+                : "—";
+            replacements["VS30_ALL_SURFACE"] = combinedSurface;   // {{VS30_ALL_SURFACE}}
+            replacements["ALL_SURFACE_VS30"] = combinedSurface;   // {{ALL_SURFACE_VS30}}
+            replacements["VS30_YUZEY_ALL"] = combinedSurface;     // {{VS30_YUZEY_ALL}}
 
             // Türkçe / İngilizce ve Harf Varyasyonları İçin Takma Adlar (Aliases)
             void AddAlias(string aliasKey, string originalKey)
@@ -894,5 +970,14 @@ public partial class MainViewModel : ObservableObject
     {
         StatusMessage = message;
         StatusMessageType = type;
+    }
+
+    /// <summary>
+    /// Kullanıcıdan gelen virgüllü/noktalı sayı string'ini double'a parse eder.
+    /// </summary>
+    private static double ParseDouble(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return 0.0;
+        return double.TryParse(value.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0.0;
     }
 }

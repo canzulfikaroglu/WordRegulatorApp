@@ -12,6 +12,7 @@ public class Vs30SeriesItem
     public double AValue { get; set; }
     public string T0 { get; set; } = string.Empty;
     public string Vs30Result { get; set; } = string.Empty;
+    public string SurfaceVs30 { get; set; } = string.Empty; // Yüzeyde ölçülen VS30 (elle girilir)
     public string Formula { get; set; } = string.Empty;
     public string FormulaFull { get; set; } = string.Empty;
     public List<Vs30LayerItem> Layers { get; set; } = new();

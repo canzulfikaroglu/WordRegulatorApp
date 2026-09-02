@@ -54,7 +54,8 @@ public class VariableService : IVariableService
             new("SEATİNGAREA", "Oturum Alanı (m²)", "Oturum alanı (m²)", VariableCategory.Rapor, VariableType.Independent, "250", order: 36),
             new("ZEROPOİNTZEROKOT", "±0.00 Kotu", "±0.00 kotu değeri", VariableCategory.Rapor, VariableType.Independent, "38,81", order: 37),
             new("FROMTHEBASETOPLEVEL", "Temel Üst Kotu Bilgisi", "Temel üst kotundan mesafe/bilgi", VariableCategory.Rapor, VariableType.Dependent, "-3,24(35,57)", order: 38),
-            new("FORMATİONTYPE", "Formasyon Tipi", "Formasyon tanımı", VariableCategory.Rapor, VariableType.Independent, "Pendik Formasyonu (Dp)", order: 39),
+            new("FORMATİONTYPE", "Formasyon Tipi", "Formasyon adı (Dropdown'dan seçilir)", VariableCategory.Rapor, VariableType.Independent, "Pendik Formasyonu (Dp)", order: 39),
+            new("FORMATİONTEXT", "Formasyon Açıklaması", "Seçilen formasyonun rapor metni (Otomatik)", VariableCategory.Rapor, VariableType.Dependent, "", order: 39),
             new("DRILLER", "Sondör Adı Soyadı", "Sondör adı soyadı", VariableCategory.Rapor, VariableType.Independent, "VURAL ÖNCÜ", order: 40),
             new("DRİLLİNGDATE", "Sondaj Tarihi", "Sondaj yapılma tarihi", VariableCategory.Rapor, VariableType.Independent, "", order: 41),
 
@@ -214,11 +215,36 @@ public class VariableService : IVariableService
         return (totalDrillingStr, groundwaterStr);
     }
 
-    public IDictionary<string, string> GenerateDrillingWellReplacements(IEnumerable<DrillingWellItem> wells)
+    public IDictionary<string, string> GenerateDrillingWellReplacements(IEnumerable<DrillingWellItem> wells, double baseTopLevel = 0.0)
     {
         var replacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var wellList = wells.ToList();
 
+        // ===== SKBASEDEEP — tüm kuyular için birleşik temel derinlik metni =====
+        var skBaseDeepParts = new List<string>();
+        for (int i = 0; i < wellList.Count; i++)
+        {
+            var w = wellList[i];
+            bool isLast = (i == wellList.Count - 1);
+
+            // Arazi kotunu sayısal parse et
+            string groundKotRaw = w.GroundKot.Replace(',', '.');
+            double.TryParse(groundKotRaw, NumberStyles.Any, CultureInfo.InvariantCulture, out var groundKotVal);
+
+            double depth = groundKotVal - baseTopLevel;
+            if (depth < 0) depth = 0;
+
+            string groundKotFormatted = groundKotVal.ToString("F2", TrCulture);
+            string depthFormatted = depth.ToString("F2", TrCulture);
+
+            string suffix = isLast ? " derinliğe inilecek ve bina temelleri dolgu birimine oturtulacaktır." 
+                                   : " derinliğe inilecek ve bina temelleri dolgu birimine,";
+
+            skBaseDeepParts.Add($"{w.WellName} sondajında {groundKotFormatted} kotundan temel üst kotu dikkate alınarak {depthFormatted} metre{suffix}");
+        }
+        replacements["SKBASEDEEP"] = string.Join("\n", skBaseDeepParts);
+
+        // ===== Kuyu bazlı replacements =====
         for (int i = 0; i < wellList.Count; i++)
         {
             var w = wellList[i];
@@ -256,7 +282,32 @@ public class VariableService : IVariableService
                 replacements[$"SK{idx}_MEASURE_DATE"] = string.Empty;
                 replacements[$"SK{idx}_WATER_DEPTH"] = w.IsCollapsed ? "Kuyu çökmüş" : string.Empty;
             }
+
+            // ===== Presiyometre — kuyu başlık değişkenleri =====
+            replacements[$"SK{idx}_PM_ZEMIN_KOTU"] = w.GroundKot;
+            replacements[$"SK{idx}_PM_COUNT"] = w.PressuremeterRows.Count.ToString();
         }
+        // ===== PM_WELL_NAMES ve SEISMIC_MEASUREMENT_COUNT =====
+        var pmWells = wellList.Where(w => w.HasPressuremeterTest).Select(w => w.WellName).ToList();
+        if (pmWells.Count > 1)
+        {
+            var last = pmWells.Last();
+            var others = string.Join(", ", pmWells.Take(pmWells.Count - 1));
+            replacements["PM_WELL_NAMES"] = $"{others} ve {last}";
+        }
+        else if (pmWells.Count == 1)
+        {
+            replacements["PM_WELL_NAMES"] = pmWells.First();
+        }
+        else
+        {
+            replacements["PM_WELL_NAMES"] = "";
+        }
+        replacements["PM_WELLS"] = replacements["PM_WELL_NAMES"];
+
+        int seismicCount = Math.Max(0, wellList.Count - 1);
+        replacements["SEISMIC_MEASUREMENT_COUNT"] = seismicCount.ToString();
+        replacements["SEISMIC_COUNT"] = seismicCount.ToString();
 
         return replacements;
     }
