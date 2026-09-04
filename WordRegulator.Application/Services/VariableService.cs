@@ -58,40 +58,6 @@ public class VariableService : IVariableService
             new("FORMATİONTEXT", "Formasyon Açıklaması", "Seçilen formasyonun rapor metni (Otomatik)", VariableCategory.Rapor, VariableType.Dependent, "", order: 39),
             new("DRILLER", "Sondör Adı Soyadı", "Sondör adı soyadı", VariableCategory.Rapor, VariableType.Independent, "VURAL ÖNCÜ", order: 40),
             new("DRİLLİNGDATE", "Sondaj Tarihi", "Sondaj yapılma tarihi", VariableCategory.Rapor, VariableType.Independent, "", order: 41),
-
-            // Sismik Koordinatlar
-            new("SEİSMİCCOORDİNATESS-1XSTART", "Sismik SS-1 X Başlangıç", "Sismik koordinat SS-1 X başlangıç", VariableCategory.Rapor, VariableType.Independent, "", order: 50),
-            new("SEİSMİCCOORDİNATESS-1YSTART", "Sismik SS-1 Y Başlangıç", "Sismik koordinat SS-1 Y başlangıç", VariableCategory.Rapor, VariableType.Independent, "", order: 51),
-            new("SEİSMİCCOORDİNATESS-2XSTART", "Sismik SS-2 X Başlangıç", "Sismik koordinat SS-2 X başlangıç", VariableCategory.Rapor, VariableType.Independent, "", order: 52),
-            new("SEİSMİCCOORDİNATESS-2YSTART", "Sismik SS-2 Y Başlangıç", "Sismik koordinat SS-2 Y başlangıç", VariableCategory.Rapor, VariableType.Independent, "", order: 53),
-            new("SEİSMİCCOORDİNATESS-1XFİNİSH", "Sismik SS-1 X Bitiş", "Sismik koordinat SS-1 X bitiş", VariableCategory.Rapor, VariableType.Independent, "", order: 54),
-            new("SEİSMİCCOORDİNATESS-1YFİNİSH", "Sismik SS-1 Y Bitiş", "Sismik koordinat SS-1 Y bitiş", VariableCategory.Rapor, VariableType.Independent, "", order: 55),
-            new("SEİSMİCCOORDİNATESS-2XFİNİSH", "Sismik SS-2 X Bitiş", "Sismik koordinat SS-2 X bitiş", VariableCategory.Rapor, VariableType.Independent, "", order: 56),
-            new("SEİSMİCCOORDİNATESS-2YFİNİSH", "Sismik SS-2 Y Bitiş", "Sismik koordinat SS-2 Y bitiş", VariableCategory.Rapor, VariableType.Independent, "", order: 57),
-
-            // Poisson Oranları
-            new("POİSSONRATİO1S1", "Poisson Oranı 1. Tabaka 1. Serim", "Poisson oranı (1. tabaka 1. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 60),
-            new("POİSSONRATİO2S1", "Poisson Oranı 2. Tabaka 1. Serim", "Poisson oranı (2. tabaka 1. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 61),
-            new("POİSSONRATİO1S2", "Poisson Oranı 1. Tabaka 2. Serim", "Poisson oranı (1. tabaka 2. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 62),
-            new("POİSSONRATİO2S2", "Poisson Oranı 2. Tabaka 2. Serim", "Poisson oranı (2. tabaka 2. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 63),
-
-            // Kayma Modülü (Shear Modulus)
-            new("SHEARMODULUS1S1", "Kayma Modülü 1. Tabaka 1. Serim", "Kayma modülü (1. tabaka 1. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 70),
-            new("SHEARMODULUS2S1", "Kayma Modülü 2. Tabaka 1. Serim", "Kayma modülü (2. tabaka 1. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 71),
-            new("SHEARMODULUS1S2", "Kayma Modülü 1. Tabaka 2. Serim", "Kayma modülü (1. tabaka 2. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 72),
-            new("SHEARMODULUS2S2", "Kayma Modülü 2. Tabaka 2. Serim", "Kayma modülü (2. tabaka 2. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 73),
-
-            // Bulk Modülü
-            new("BULKMODULE1S1", "Bulk Modülü 1. Tabaka 1. Serim", "Bulk modülü (1. tabaka 1. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 80),
-            new("BULKMODULE2S1", "Bulk Modülü 2. Tabaka 1. Serim", "Bulk modülü (2. tabaka 1. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 81),
-            new("BULKMODULE1S2", "Bulk Modülü 1. Tabaka 2. Serim", "Bulk modülü (2. tabaka 2. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 82),
-            new("BULKMODULE2S2", "Bulk Modülü 2. Tabaka 2. Serim", "Bulk modülü (2. tabaka 2. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 83),
-
-            // Elastisite Modülü
-            new("ELASTİCİTYMODULUS1S1", "Elastisite Modülü 1. Tabaka 1. Serim", "Elastisite modülü (1. tabaka 1. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 90),
-            new("ELASTİCİTYMODULUS2S1", "Elastisite Modülü 2. Tabaka 1. Serim", "Elastisite modülü (2. tabaka 1. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 91),
-            new("ELASTİCİTYMODULUS1S2", "Elastisite Modülü 1. Tabaka 2. Serim", "Elastisite modülü (1. tabaka 2. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 92),
-            new("ELASTİCİTYMODULUS2S2", "Elastisite Modülü 2. Tabaka 2. Serim", "Elastisite modülü (2. tabaka 2. serim)", VariableCategory.Rapor, VariableType.Independent, "", order: 93)
         };
 
         return list.OrderBy(x => x.Order).ToList();

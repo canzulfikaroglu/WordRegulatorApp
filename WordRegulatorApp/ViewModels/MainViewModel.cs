@@ -770,6 +770,46 @@ public partial class MainViewModel : ObservableObject
                 replacements[$"VS30_S{sNum}_T0"] = series.T0Input;
                 replacements[$"T0_{sNum}"] = series.T0Input;
 
+                // Serim Başlık İsimleri
+                replacements[$"SS_{sNum}_NAME"] = $"SS-{sNum}";
+                replacements[$"SERIM_{sNum}_NAME"] = $"{sNum}. Serim";
+                replacements[$"SERIM_{sNum}_NO"] = sNum.ToString();
+
+                // ===== Sismik Koordinatlar (dinamik) =====
+                replacements[$"SS_{sNum}_XSTART"]  = series.XStart;
+                replacements[$"SS_{sNum}_YSTART"]  = series.YStart;
+                replacements[$"SS_{sNum}_XFINISH"] = series.XFinish;
+                replacements[$"SS_{sNum}_YFINISH"] = series.YFinish;
+                // Geriye dönük uyumluluk için eski format (SS-1XSTART)
+                replacements[$"SEİSMİCCOORDİNATESS-{sNum}XSTART"]  = series.XStart;
+                replacements[$"SEİSMİCCOORDİNATESS-{sNum}YSTART"]  = series.YStart;
+                replacements[$"SEİSMİCCOORDİNATESS-{sNum}XFİNİSH"] = series.XFinish;
+                replacements[$"SEİSMİCCOORDİNATESS-{sNum}YFİNİSH"] = series.YFinish;
+
+                // ===== Poisson Oranı (dinamik) =====
+                replacements[$"SS_{sNum}_POISSON1"] = series.PoissonLayer1;
+                replacements[$"SS_{sNum}_POISSON2"] = series.PoissonLayer2;
+                replacements[$"POİSSONRATİO1S{sNum}"] = series.PoissonLayer1;
+                replacements[$"POİSSONRATİO2S{sNum}"] = series.PoissonLayer2;
+
+                // ===== Kayma Modülü (dinamik) =====
+                replacements[$"SS_{sNum}_SHEAR1"] = series.ShearModulusLayer1;
+                replacements[$"SS_{sNum}_SHEAR2"] = series.ShearModulusLayer2;
+                replacements[$"SHEARMODULUS1S{sNum}"] = series.ShearModulusLayer1;
+                replacements[$"SHEARMODULUS2S{sNum}"] = series.ShearModulusLayer2;
+
+                // ===== Bulk Modülü (dinamik) =====
+                replacements[$"SS_{sNum}_BULK1"] = series.BulkModulusLayer1;
+                replacements[$"SS_{sNum}_BULK2"] = series.BulkModulusLayer2;
+                replacements[$"BULKMODULE1S{sNum}"] = series.BulkModulusLayer1;
+                replacements[$"BULKMODULE2S{sNum}"] = series.BulkModulusLayer2;
+
+                // ===== Elastisite Modülü (dinamik) =====
+                replacements[$"SS_{sNum}_ELASTICITY1"] = series.ElasticityModulusLayer1;
+                replacements[$"SS_{sNum}_ELASTICITY2"] = series.ElasticityModulusLayer2;
+                replacements[$"ELASTİCİTYMODULUS1S{sNum}"] = series.ElasticityModulusLayer1;
+                replacements[$"ELASTİCİTYMODULUS2S{sNum}"] = series.ElasticityModulusLayer2;
+
                 string formula = seriesReplacements.TryGetValue("VS30_FORMULA", out var f) ? f : "";
                 string formulaFull = seriesReplacements.TryGetValue("VS30_FORMULA_FULL", out var ff) ? ff : "";
                 double h1Val = double.TryParse(seriesReplacements.TryGetValue("VS30_H1", out var h1Str) ? h1Str.Replace(',', '.') : "0", System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedH1) ? parsedH1 : 0.0;
@@ -789,7 +829,20 @@ public partial class MainViewModel : ObservableObject
                     SurfaceVs30 = series.SurfaceVs30Input,
                     Formula = formula,
                     FormulaFull = formulaFull,
-                    Layers = seriesDomainLayers
+                    Layers = seriesDomainLayers,
+                    // Koordinatlar & Modüller
+                    XStart  = series.XStart,
+                    YStart  = series.YStart,
+                    XFinish = series.XFinish,
+                    YFinish = series.YFinish,
+                    PoissonLayer1          = series.PoissonLayer1,
+                    PoissonLayer2          = series.PoissonLayer2,
+                    ShearModulusLayer1     = series.ShearModulusLayer1,
+                    ShearModulusLayer2     = series.ShearModulusLayer2,
+                    BulkModulusLayer1      = series.BulkModulusLayer1,
+                    BulkModulusLayer2      = series.BulkModulusLayer2,
+                    ElasticityModulusLayer1 = series.ElasticityModulusLayer1,
+                    ElasticityModulusLayer2 = series.ElasticityModulusLayer2,
                 });
             }
 
@@ -799,6 +852,19 @@ public partial class MainViewModel : ObservableObject
                 replacements["A"] = replacements.TryGetValue("A1", out var a1) ? a1 : "1,00";
                 replacements["T0"] = Vs30Series[0].T0Input;
             }
+
+            // ===== T0_ALL_SERIES — tüm serimlerin T0 özeti =====
+            // Çıktı örneği: "1. Serim T0 = 0,21 sn\n2. Serim T0 = 0,22 sn"
+            var t0Parts = new List<string>();
+            foreach (var s in Vs30Series)
+            {
+                string t0Val = string.IsNullOrWhiteSpace(s.T0Input) ? "—" : s.T0Input.Trim();
+                t0Parts.Add($"{s.SeriesNumber}. Serim T0 = {t0Val} sn");
+            }
+            string t0AllText = string.Join("\n", t0Parts);
+            replacements["T0_ALL_SERIES"] = t0AllText;    // {{T0_ALL_SERIES}}
+            replacements["ALL_T0"] = t0AllText;            // {{ALL_T0}}
+            replacements["T0_OZET"] = t0AllText;           // {{T0_OZET}}
 
             // TÜK'e göre tüm serimlerin birleşik Vs30 sonuçları: örn: "1101 / 1062 m/sn" veya "1101 / 1062"
             var vs30NumbersList = new List<string>();

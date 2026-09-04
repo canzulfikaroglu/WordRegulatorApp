@@ -16,4 +16,20 @@ public class Vs30SeriesItem
     public string Formula { get; set; } = string.Empty;
     public string FormulaFull { get; set; } = string.Empty;
     public List<Vs30LayerItem> Layers { get; set; } = new();
+
+    // ===== Sismik Koordinatlar =====
+    public string XStart  { get; set; } = string.Empty;
+    public string YStart  { get; set; } = string.Empty;
+    public string XFinish { get; set; } = string.Empty;
+    public string YFinish { get; set; } = string.Empty;
+
+    // ===== Tabaka Modülleri =====
+    public string PoissonLayer1         { get; set; } = string.Empty;
+    public string PoissonLayer2         { get; set; } = string.Empty;
+    public string ShearModulusLayer1    { get; set; } = string.Empty;
+    public string ShearModulusLayer2    { get; set; } = string.Empty;
+    public string BulkModulusLayer1     { get; set; } = string.Empty;
+    public string BulkModulusLayer2     { get; set; } = string.Empty;
+    public string ElasticityModulusLayer1 { get; set; } = string.Empty;
+    public string ElasticityModulusLayer2 { get; set; } = string.Empty;
 }

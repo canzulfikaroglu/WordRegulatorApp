@@ -60,6 +60,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                     {
                         replacementCount += ProcessDynamicVs30Tables(mainPart.Document.Body, vs30Series, replacedKeys);
                         replacementCount += ProcessDynamicVs30Paragraphs(mainPart.Document.Body, vs30Series, replacedKeys);
+                        replacementCount += ProcessDynamicSeismicTables(mainPart.Document.Body, vs30Series, replacedKeys);
                     }
 
                     replacementCount += ProcessElementContainers(mainPart.Document.Body, variableReplacements, replacedKeys);
@@ -511,6 +512,296 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         }
 
         return totalReplacements;
+    }
+
+    // =====================================================================
+    // Sismik Koordinat / Poisson / Kayma / Bulk / Elastisite Tabloları
+    // Dinamik Çift-Serim Klonlama
+    //
+    // Şablon tabloda {{SS_1_XSTART}} ve {{SS_2_XSTART}} gibi işaretler varsa,
+    // processor tabloyu serim ÇIFTLERI için klonlar:
+    //   Serim 1-2 → orijinal tabloyu doldur
+    //   Serim 3-4 → tablo klonla, 1→3, 2→4 diye değiştir
+    //   Serim 5-6 → tablo klonla, 1→5, 2→6 diye değiştir vb.
+    //
+    // Aynı mekanizma şu prefix'ler için çalışır:
+    //   SS_n_XSTART, SS_n_YSTART, SS_n_XFINISH, SS_n_YFINISH
+    //   SS_n_POISSON1, SS_n_POISSON2
+    //   SS_n_SHEAR1, SS_n_SHEAR2
+    //   SS_n_BULK1, SS_n_BULK2
+    //   SS_n_ELASTICITY1, SS_n_ELASTICITY2
+    // =====================================================================
+    private int ProcessDynamicSeismicTables(
+        Body body,
+        IEnumerable<Vs30SeriesItem> vs30Series,
+        HashSet<string> replacedKeys)
+    {
+        var seriesList = vs30Series.ToList();
+        if (seriesList.Count == 0) return 0;
+
+        int totalReplacements = 0;
+
+        // Yalnızca en içteki sismik tabloları seç (içinde başka tablo olmayan yaprak tablolar)
+        // Böylece dış tablo / layout tabloları yanlışlıkla klonlanmaz
+        static bool IsSeismicTable(Table t)
+        {
+            if (t.Descendants<Table>().Any()) return false;
+
+            string text = t.InnerText;
+            if (string.IsNullOrEmpty(text)) return false;
+
+            return text.Contains("{{SS_1_") || text.Contains("{{SS_2_")
+                || text.Contains("{{SEİSMİCCOORDİNATESS-1") || text.Contains("{{SEİSMİCCOORDİNATESS-2")
+                || text.Contains("{{POİSSONRATİO1S1") || text.Contains("{{POİSSONRATİO1S2")
+                || text.Contains("{{SHEARMODULUS1S1") || text.Contains("{{SHEARMODULUS1S2")
+                || text.Contains("{{BULKMODULE1S1") || text.Contains("{{BULKMODULE1S2")
+                || text.Contains("{{ELASTİCİTYMODULUS1S1") || text.Contains("{{ELASTİCİTYMODULUS1S2");
+        }
+
+        var tables = body.Descendants<Table>().Where(IsSeismicTable).ToList();
+        if (tables.Count == 0) return 0;
+
+        // Serimleri 2'şerli grupla: [(1,2), (3,4), (5,6) ...]
+        var pairs = new List<(Vs30SeriesItem? s1, Vs30SeriesItem? s2)>();
+        for (int i = 0; i < seriesList.Count; i += 2)
+        {
+            pairs.Add((
+                i < seriesList.Count ? seriesList[i] : null,
+                i + 1 < seriesList.Count ? seriesList[i + 1] : null
+            ));
+        }
+
+        foreach (var table in tables)
+        {
+            var parent = table.Parent;
+            if (parent == null) continue;
+
+            for (int pairIdx = 0; pairIdx < pairs.Count; pairIdx++)
+            {
+                var (s1, s2) = pairs[pairIdx];
+                int num1 = s1?.SeriesNumber ?? (pairIdx * 2 + 1);
+                int num2 = s2?.SeriesNumber ?? (pairIdx * 2 + 2);
+
+                // Tabloyu OpenXML yapısını ve tüm hücre formatlarını birebir koruyarak klonla
+                var cloned = (Table)table.CloneNode(true);
+
+                // Floating (metin kaydırma / mutlak konumlandırma) özelliklerini kaldır:
+                // Word'ün iki tabloyu üst üste (iç içe) bindirmesini kesin olarak engeller
+                var tblPr = cloned.GetFirstChild<TableProperties>();
+                if (tblPr != null)
+                {
+                    tblPr.GetFirstChild<TablePositionProperties>()?.Remove();
+                }
+
+                // 2. ve sonraki çiftlerde literal başlıktaki "SS-1" -> "SS-3", "1.Serim" -> "3.Serim" metinlerini güncelle
+                if (pairIdx > 0)
+                {
+                    ReplaceLiteralHeaders(cloned, num1, num2, s2 != null);
+                }
+
+                // Bu çiftin (örn: 3 ve 4. serim) verilerini şablondaki SS_1_ ve SS_2_ etiketlerine eşle
+                var pairReplacements = BuildSeismicReplacements(s1, num1, s2, num2);
+                foreach (var row in cloned.Elements<TableRow>())
+                {
+                    totalReplacements += ProcessElementContainers(row, pairReplacements, replacedKeys);
+                }
+
+                // Klonlanan tabloyu orijinal tablonun hemen öncesine yerleştir
+                parent.InsertBefore(cloned, table);
+
+                // Tabloların Word'de birleşmemesi ve görsel olarak ayrılması için araya belirgin bir boş satır (paragraf) koy
+                if (pairIdx < pairs.Count - 1)
+                {
+                    var separator = new Paragraph(
+                        new ParagraphProperties(
+                            new SpacingBetweenLines { Before = "240", After = "240", Line = "240", LineRule = LineSpacingRuleValues.Auto }
+                        ),
+                        new Run(
+                            new RunProperties(new FontSize { Val = "22" }),
+                            new Text(" ") { Space = DocumentFormat.OpenXml.SpaceProcessingModeValues.Preserve }
+                        )
+                    );
+                    parent.InsertBefore(separator, table);
+                }
+
+                totalReplacements++;
+            }
+
+            // Orijinal şablon tabloyu güvenle kaldır
+            table.Remove();
+        }
+
+        return totalReplacements;
+    }
+
+    /// <summary>
+    /// Klon tablolardaki sabit metin başlıklarını (SS-1, SS-2, 1.Serim, 2.Serim) serim numaralarına göre günceller.
+    /// Hücre içi formatları ve {{...}} değişkenlerini bozmaz.
+    /// </summary>
+    private static void ReplaceLiteralHeaders(Table table, int num1, int num2, bool hasS2)
+    {
+        foreach (var textEl in table.Descendants<Text>())
+        {
+            var text = textEl.Text;
+            if (string.IsNullOrEmpty(text)) continue;
+
+            // Değişken etiketlerini elleme (onları ProcessElementContainers yapacak)
+            if (text.Contains("{{")) continue;
+
+            bool modified = false;
+
+            if (text.Contains("SS-1", StringComparison.OrdinalIgnoreCase)) { text = text.Replace("SS-1", $"SS-{num1}", StringComparison.OrdinalIgnoreCase); modified = true; }
+            if (text.Contains("SS-2", StringComparison.OrdinalIgnoreCase)) { text = text.Replace("SS-2", hasS2 ? $"SS-{num2}" : "—", StringComparison.OrdinalIgnoreCase); modified = true; }
+            if (text.Contains("SS - 1", StringComparison.OrdinalIgnoreCase)) { text = text.Replace("SS - 1", $"SS - {num1}", StringComparison.OrdinalIgnoreCase); modified = true; }
+            if (text.Contains("SS - 2", StringComparison.OrdinalIgnoreCase)) { text = text.Replace("SS - 2", hasS2 ? $"SS - {num2}" : "—", StringComparison.OrdinalIgnoreCase); modified = true; }
+
+            if (text.Contains("1.Serim", StringComparison.OrdinalIgnoreCase)) { text = text.Replace("1.Serim", $"{num1}.Serim", StringComparison.OrdinalIgnoreCase); modified = true; }
+            if (text.Contains("2.Serim", StringComparison.OrdinalIgnoreCase)) { text = text.Replace("2.Serim", hasS2 ? $"{num2}.Serim" : "—", StringComparison.OrdinalIgnoreCase); modified = true; }
+            if (text.Contains("1. Serim", StringComparison.OrdinalIgnoreCase)) { text = text.Replace("1. Serim", $"{num1}. Serim", StringComparison.OrdinalIgnoreCase); modified = true; }
+            if (text.Contains("2. Serim", StringComparison.OrdinalIgnoreCase)) { text = text.Replace("2. Serim", hasS2 ? $"{num2}. Serim" : "—", StringComparison.OrdinalIgnoreCase); modified = true; }
+
+            if (modified)
+            {
+                textEl.Text = text;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Bir serim çifti (örneğin Serim 1-2 veya Serim 3-4) için replacements haritası üretir.
+    /// Şablondaki SS_1_ / SS_2_ etiketlerini bu çiftin ilgili verileriyle eşler.
+    /// </summary>
+    private static Dictionary<string, string> BuildSeismicReplacements(
+        Vs30SeriesItem? s1, int num1,
+        Vs30SeriesItem? s2, int num2)
+    {
+        var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // Başlık değişkenleri
+        d["SS_1_NAME"] = $"SS-{num1}";
+        d["SS_2_NAME"] = s2 != null ? $"SS-{num2}" : "—";
+        d["SERIM_1_NAME"] = $"{num1}. Serim";
+        d["SERIM_2_NAME"] = s2 != null ? $"{num2}. Serim" : "—";
+        d["SERIM_1_NO"] = num1.ToString();
+        d["SERIM_2_NO"] = s2 != null ? num2.ToString() : "—";
+
+        // 1. Sütun Verileri (s1: Serim 1, 3, 5...)
+        string xStart1  = s1?.XStart  ?? "";
+        string yStart1  = s1?.YStart  ?? "";
+        string xFinish1 = s1?.XFinish ?? "";
+        string yFinish1 = s1?.YFinish ?? "";
+        string p1_1     = s1?.PoissonLayer1 ?? "";
+        string p2_1     = s1?.PoissonLayer2 ?? "";
+        string sh1_1    = s1?.ShearModulusLayer1 ?? "";
+        string sh2_1    = s1?.ShearModulusLayer2 ?? "";
+        string b1_1     = s1?.BulkModulusLayer1 ?? "";
+        string b2_1     = s1?.BulkModulusLayer2 ?? "";
+        string e1_1     = s1?.ElasticityModulusLayer1 ?? "";
+        string e2_1     = s1?.ElasticityModulusLayer2 ?? "";
+
+        // Dinamik SS_1_ prefix'leri
+        d["SS_1_XSTART"]      = xStart1;
+        d["SS_1_YSTART"]      = yStart1;
+        d["SS_1_XFINISH"]     = xFinish1;
+        d["SS_1_YFINISH"]     = yFinish1;
+        d["SS_1_POISSON1"]    = p1_1;
+        d["SS_1_POISSON2"]    = p2_1;
+        d["SS_1_SHEAR1"]      = sh1_1;
+        d["SS_1_SHEAR2"]      = sh2_1;
+        d["SS_1_BULK1"]       = b1_1;
+        d["SS_1_BULK2"]       = b2_1;
+        d["SS_1_ELASTICITY1"] = e1_1;
+        d["SS_1_ELASTICITY2"] = e2_1;
+
+        // Eski değişken isimleri için geriye dönük uyumluluk (1. sütun)
+        d["SEİSMİCCOORDİNATESS-1XSTART"]  = xStart1;
+        d["SEİSMİCCOORDİNATESS-1YSTART"]  = yStart1;
+        d["SEİSMİCCOORDİNATESS-1XFİNİSH"] = xFinish1;
+        d["SEİSMİCCOORDİNATESS-1YFİNİSH"] = yFinish1;
+        d["POİSSONRATİO1S1"]              = p1_1;
+        d["POİSSONRATİO2S1"]              = p2_1;
+        d["SHEARMODULUS1S1"]              = sh1_1;
+        d["SHEARMODULUS2S1"]              = sh2_1;
+        d["BULKMODULE1S1"]                = b1_1;
+        d["BULKMODULE2S1"]                = b2_1;
+        d["ELASTİCİTYMODULUS1S1"]          = e1_1;
+        d["ELASTİCİTYMODULUS2S1"]          = e2_1;
+
+        // 2. Sütun Verileri (s2: Serim 2, 4, 6...)
+        string xStart2  = s2?.XStart  ?? "";
+        string yStart2  = s2?.YStart  ?? "";
+        string xFinish2 = s2?.XFinish ?? "";
+        string yFinish2 = s2?.YFinish ?? "";
+        string p1_2     = s2?.PoissonLayer1 ?? "";
+        string p2_2     = s2?.PoissonLayer2 ?? "";
+        string sh1_2    = s2?.ShearModulusLayer1 ?? "";
+        string sh2_2    = s2?.ShearModulusLayer2 ?? "";
+        string b1_2     = s2?.BulkModulusLayer1 ?? "";
+        string b2_2     = s2?.BulkModulusLayer2 ?? "";
+        string e1_2     = s2?.ElasticityModulusLayer1 ?? "";
+        string e2_2     = s2?.ElasticityModulusLayer2 ?? "";
+
+        // Dinamik SS_2_ prefix'leri
+        d["SS_2_XSTART"]      = xStart2;
+        d["SS_2_YSTART"]      = yStart2;
+        d["SS_2_XFINISH"]     = xFinish2;
+        d["SS_2_YFINISH"]     = yFinish2;
+        d["SS_2_POISSON1"]    = p1_2;
+        d["SS_2_POISSON2"]    = p2_2;
+        d["SS_2_SHEAR1"]      = sh1_2;
+        d["SS_2_SHEAR2"]      = sh2_2;
+        d["SS_2_BULK1"]       = b1_2;
+        d["SS_2_BULK2"]       = b2_2;
+        d["SS_2_ELASTICITY1"] = e1_2;
+        d["SS_2_ELASTICITY2"] = e2_2;
+
+        // Eski değişken isimleri için geriye dönük uyumluluk (2. sütun)
+        d["SEİSMİCCOORDİNATESS-2XSTART"]  = xStart2;
+        d["SEİSMİCCOORDİNATESS-2YSTART"]  = yStart2;
+        d["SEİSMİCCOORDİNATESS-2XFİNİSH"] = xFinish2;
+        d["SEİSMİCCOORDİNATESS-2YFİNİSH"] = yFinish2;
+        d["POİSSONRATİO1S2"]              = p1_2;
+        d["POİSSONRATİO2S2"]              = p2_2;
+        d["SHEARMODULUS1S2"]              = sh1_2;
+        d["SHEARMODULUS2S2"]              = sh2_2;
+        d["BULKMODULE1S2"]                = b1_2;
+        d["BULKMODULE2S2"]                = b2_2;
+        d["ELASTİCİTYMODULUS1S2"]          = e1_2;
+        d["ELASTİCİTYMODULUS2S2"]          = e2_2;
+
+        // Şablonda doğrudan SS_3_ veya SS_4_ yazılmışsa onlar da çalışsın
+        d[$"SS_{num1}_NAME"]        = $"SS-{num1}";
+        d[$"SS_{num1}_XSTART"]      = xStart1;
+        d[$"SS_{num1}_YSTART"]      = yStart1;
+        d[$"SS_{num1}_XFINISH"]     = xFinish1;
+        d[$"SS_{num1}_YFINISH"]     = yFinish1;
+        d[$"SS_{num1}_POISSON1"]    = p1_1;
+        d[$"SS_{num1}_POISSON2"]    = p2_1;
+        d[$"SS_{num1}_SHEAR1"]      = sh1_1;
+        d[$"SS_{num1}_SHEAR2"]      = sh2_1;
+        d[$"SS_{num1}_BULK1"]       = b1_1;
+        d[$"SS_{num1}_BULK2"]       = b2_1;
+        d[$"SS_{num1}_ELASTICITY1"] = e1_1;
+        d[$"SS_{num1}_ELASTICITY2"] = e2_1;
+
+        if (s2 != null)
+        {
+            d[$"SS_{num2}_NAME"]        = $"SS-{num2}";
+            d[$"SS_{num2}_XSTART"]      = xStart2;
+            d[$"SS_{num2}_YSTART"]      = yStart2;
+            d[$"SS_{num2}_XFINISH"]     = xFinish2;
+            d[$"SS_{num2}_YFINISH"]     = yFinish2;
+            d[$"SS_{num2}_POISSON1"]    = p1_2;
+            d[$"SS_{num2}_POISSON2"]    = p2_2;
+            d[$"SS_{num2}_SHEAR1"]      = sh1_2;
+            d[$"SS_{num2}_SHEAR2"]      = sh2_2;
+            d[$"SS_{num2}_BULK1"]       = b1_2;
+            d[$"SS_{num2}_BULK2"]       = b2_2;
+            d[$"SS_{num2}_ELASTICITY1"] = e1_2;
+            d[$"SS_{num2}_ELASTICITY2"] = e2_2;
+        }
+
+        return d;
     }
 
     // =====================================================================

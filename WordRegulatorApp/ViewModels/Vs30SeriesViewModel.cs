@@ -33,6 +33,24 @@ public partial class Vs30SeriesViewModel : ObservableObject
     [ObservableProperty]
     private string _surfaceVs30Input = "";
 
+    // ===== Sismik Koordinatlar =====
+    [ObservableProperty] private string _xStart = "";
+    [ObservableProperty] private string _yStart = "";
+    [ObservableProperty] private string _xFinish = "";
+    [ObservableProperty] private string _yFinish = "";
+
+    // ===== Tabaka 1 Değerleri =====
+    [ObservableProperty] private string _poissonLayer1 = "";
+    [ObservableProperty] private string _shearModulusLayer1 = "";
+    [ObservableProperty] private string _bulkModulusLayer1 = "";
+    [ObservableProperty] private string _elasticityModulusLayer1 = "";
+
+    // ===== Tabaka 2 Değerleri =====
+    [ObservableProperty] private string _poissonLayer2 = "";
+    [ObservableProperty] private string _shearModulusLayer2 = "";
+    [ObservableProperty] private string _bulkModulusLayer2 = "";
+    [ObservableProperty] private string _elasticityModulusLayer2 = "";
+
     /// <summary>Hesaplanan Df: (kotOrtalama) - baseTopLevel. Temel Üst Kotu değişkeninden alınır.</summary>
     [ObservableProperty]
     private string _dfDisplay = "0,00 m";
@@ -232,6 +250,19 @@ public partial class Vs30SeriesViewModel : ObservableObject
     {
         SeriesChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    partial void OnXStartChanged(string value) => SeriesChanged?.Invoke(this, EventArgs.Empty);
+    partial void OnYStartChanged(string value) => SeriesChanged?.Invoke(this, EventArgs.Empty);
+    partial void OnXFinishChanged(string value) => SeriesChanged?.Invoke(this, EventArgs.Empty);
+    partial void OnYFinishChanged(string value) => SeriesChanged?.Invoke(this, EventArgs.Empty);
+    partial void OnPoissonLayer1Changed(string value) => SeriesChanged?.Invoke(this, EventArgs.Empty);
+    partial void OnPoissonLayer2Changed(string value) => SeriesChanged?.Invoke(this, EventArgs.Empty);
+    partial void OnShearModulusLayer1Changed(string value) => SeriesChanged?.Invoke(this, EventArgs.Empty);
+    partial void OnShearModulusLayer2Changed(string value) => SeriesChanged?.Invoke(this, EventArgs.Empty);
+    partial void OnBulkModulusLayer1Changed(string value) => SeriesChanged?.Invoke(this, EventArgs.Empty);
+    partial void OnBulkModulusLayer2Changed(string value) => SeriesChanged?.Invoke(this, EventArgs.Empty);
+    partial void OnElasticityModulusLayer1Changed(string value) => SeriesChanged?.Invoke(this, EventArgs.Empty);
+    partial void OnElasticityModulusLayer2Changed(string value) => SeriesChanged?.Invoke(this, EventArgs.Empty);
 
     /// <summary>
     /// Df ve VS30 sonucunu günceller. A = 68 * (Vs30)^(-0.6) katsayısını hesaplar.
