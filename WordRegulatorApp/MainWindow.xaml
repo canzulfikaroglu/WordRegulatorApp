@@ -1,4 +1,4 @@
-<Window x:Class="WordRegulatorApp.MainWindow"
+﻿<Window x:Class="WordRegulatorApp.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -704,6 +704,146 @@
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Border>
+
+                <!-- ================= 📡 MİKROTREMÖR ÖLÇÜMÜ ================= -->
+                <Border Background="{StaticResource PanelDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,16" BorderBrush="#F59E0B" BorderThickness="1">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Panel Başlığı & Ölçüm Sayısı -->
+                        <Grid Grid.Row="0" Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Background="#F59E0B" CornerRadius="6" Width="28" Height="28" Margin="0,0,10,0">
+                                    <TextBlock Text="📡" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Mikrotremör Ölçümü (Dinamik Ölçüm Girişi)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="Ölçüm sayısını girin. Her ölçüm için Tablo 1 (T0/Ta/Tb/Frekans) ve Tablo 2 (Tarih/Koordinat) alanları açılır." FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Mikrotremör Ölçüm Sayısı -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Ölçüm Sayısı (Elle Girin):" FontSize="12" Foreground="#F59E0B" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Text="{Binding MicrotremorCountInput, UpdateSourceTrigger=PropertyChanged}" Width="65" Style="{StaticResource DarkTextBoxStyle}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Ölçüm Kartları -->
+                        <ItemsControl Grid.Row="1" ItemsSource="{Binding MicrotremorMeasurements}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:MicrotremorMeasurementViewModel}">
+                                    <Border Width="430" Margin="0,0,12,12" Background="#1A1A24" CornerRadius="10" Padding="12" BorderBrush="#92400E" BorderThickness="1">
+                                        <StackPanel>
+
+                                            <!-- Ölçüm Başlığı -->
+                                            <Border Background="#20202B" CornerRadius="6" Padding="8,4" Margin="0,0,0,10">
+                                                <TextBlock Text="{Binding DisplayName, StringFormat='📡 {0}'}" FontWeight="Bold" FontSize="12" Foreground="#F59E0B"/>
+                                            </Border>
+
+                                            <!-- TABLO 1: Ölçüm Veri Tablosu Başlığı -->
+                                            <Border Background="#1A1200" CornerRadius="6" Padding="8,4" Margin="0,0,0,6" BorderBrush="#78350F" BorderThickness="1">
+                                                <TextBlock Text="Tablo 1 — Ölçüm Verileri: Ölçü No / T0 / Ta / Tb / Frekans" FontSize="10" FontWeight="Bold" Foreground="#FCD34D"/>
+                                            </Border>
+
+                                            <!-- TABLO 1 Grid: T0, Ta, Tb, Frekans -->
+                                            <Grid Margin="0,0,0,10">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="6"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="6"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="6"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- T0 -->
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="T0 (sn):" FontSize="10" Foreground="#F59E0B" FontWeight="Bold"/>
+                                                    <TextBox Text="{Binding T0, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="4,4" Style="{StaticResource DarkTextBoxStyle}"
+                                                             ToolTip="Raporda: MT_[N]_T0 — Hakim periyot değeri (sn)"/>
+                                                </StackPanel>
+
+                                                <!-- Ta -->
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="Ta:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    <TextBox Text="{Binding Ta, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="4,4" Style="{StaticResource DarkTextBoxStyle}"
+                                                             ToolTip="Raporda: MT_[N]_TA — Alt periyot değeri"/>
+                                                </StackPanel>
+
+                                                <!-- Tb -->
+                                                <StackPanel Grid.Column="4">
+                                                    <TextBlock Text="Tb:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    <TextBox Text="{Binding Tb, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="4,4" Style="{StaticResource DarkTextBoxStyle}"
+                                                             ToolTip="Raporda: MT_[N]_TB — Üst periyot değeri"/>
+                                                </StackPanel>
+
+                                                <!-- Frekans -->
+                                                <StackPanel Grid.Column="6">
+                                                    <TextBlock Text="Frekans (Hz):" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    <TextBox Text="{Binding Frequency, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="4,4" Style="{StaticResource DarkTextBoxStyle}"
+                                                             ToolTip="Raporda: MT_[N]_FREQ — Frekans değeri (Hz)"/>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- TABLO 2: Konum Tablosu Başlığı -->
+                                            <Border Background="#111A12" CornerRadius="6" Padding="8,4" Margin="0,0,0,6" BorderBrush="#166534" BorderThickness="1">
+                                                <TextBlock Text="Tablo 2 — Konum Bilgileri: Ölçüm No / Tarih / Yatay Koordinat / Düşey Koordinat" FontSize="10" FontWeight="Bold" Foreground="#86EFAC"/>
+                                            </Border>
+
+                                            <!-- TABLO 2 Grid: Tarih, Yatay, Düşey -->
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="6"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="6"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- Tarih -->
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="Tarih:" FontSize="10" Foreground="#86EFAC" FontWeight="Bold"/>
+                                                    <TextBox Text="{Binding Date, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="4,4" Style="{StaticResource DarkTextBoxStyle}"
+                                                             ToolTip="Raporda: MT_[N]_DATE veya MT_[N]_TARIH — Ölçüm tarihi"/>
+                                                </StackPanel>
+
+                                                <!-- Yatay Koordinat -->
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="Yatay Koor. (X):" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    <TextBox Text="{Binding HorizontalCoordinate, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="4,4" Style="{StaticResource DarkTextBoxStyle}"
+                                                             ToolTip="Raporda: MT_[N]_X veya MT_[N]_YATAY — Yatay koordinat"/>
+                                                </StackPanel>
+
+                                                <!-- Düşey Koordinat -->
+                                                <StackPanel Grid.Column="4">
+                                                    <TextBlock Text="Düşey Koor. (Y):" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    <TextBox Text="{Binding VerticalCoordinate, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="4,4" Style="{StaticResource DarkTextBoxStyle}"
+                                                             ToolTip="Raporda: MT_[N]_Y veya MT_[N]_DUZEY — Düşey koordinat"/>
+                                                </StackPanel>
+                                            </Grid>
+
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>

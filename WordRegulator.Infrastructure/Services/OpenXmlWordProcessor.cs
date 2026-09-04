@@ -63,6 +63,8 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                         replacementCount += ProcessDynamicSeismicTables(mainPart.Document.Body, vs30Series, replacedKeys);
                     }
 
+                    replacementCount += ProcessDynamicMicrotremorTables(mainPart.Document.Body, variableReplacements, replacedKeys);
+
                     replacementCount += ProcessElementContainers(mainPart.Document.Body, variableReplacements, replacedKeys);
                 }
 
@@ -1235,5 +1237,83 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                   .Replace("-", string.Empty)
                   .Replace(" ", string.Empty)
                   .ToUpperInvariant();
+    }
+    // =====================================================================
+    // Mikrotremör Ölçüm Tablosu Dinamik İşleme
+    // Şablon tablosunda {{MT_NO}}, {{MT_T0}}, {{MT_TA}} vb. varsa,
+    // replacements içindeki MT_1_, MT_2_ ... verilerini kullanarak
+    // her ölçüm için satırlar çoğaltanır.
+    // =====================================================================
+    private int ProcessDynamicMicrotremorTables(
+        Body body,
+        IDictionary<string, string> variableReplacements,
+        HashSet<string> replacedKeys)
+    {
+        // Kaç mikrotremör ölçümü var?
+        int mtCount = 0;
+        if (variableReplacements.TryGetValue("MICROTREMOR_COUNT", out var mcStr) ||
+            variableReplacements.TryGetValue("MT_COUNT", out mcStr))
+        {
+            int.TryParse(mcStr, out mtCount);
+        }
+        if (mtCount <= 0) return 0;
+
+        int totalReplacements = 0;
+        var tables = body.Descendants<Table>().ToList();
+
+        foreach (var table in tables)
+        {
+            var rows = table.Elements<TableRow>().ToList();
+
+            // {{MT_NO}} veya {{MT_T0}} gibi mikrotremör Şablon satırını bul
+            TableRow? templateRow = rows.FirstOrDefault(r =>
+            {
+                string text = r.InnerText;
+                return text.Contains("{{MT_NO}}") ||
+                       text.Contains("{{MT_T0}}") ||
+                       text.Contains("{{MT_TA}}") ||
+                       text.Contains("{{MT_TB}}") ||
+                       text.Contains("{{MT_FREQ}}") ||
+                       text.Contains("{{MT_DATE}}") ||
+                       text.Contains("{{MT_TARIH}}") ||
+                       text.Contains("{{MT_X}}") ||
+                       text.Contains("{{MT_Y}}") ||
+                       text.Contains("{{MT_YATAY}}") ||
+                       text.Contains("{{MT_DUZEY}}");
+            });
+
+            if (templateRow == null) continue;
+
+            // Her ölçüm için satır klonla
+            for (int n = 1; n <= mtCount; n++)
+            {
+                var newRow = (TableRow)templateRow.CloneNode(true);
+
+                // Bu ölçümün değişkenlerini replacements'tan al
+                var mtReplacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["MT_NO"]     = n.ToString(),
+                    ["MT_T0"]     = variableReplacements.TryGetValue($"MT_{n}_T0",    out var v1) ? v1 : "",
+                    ["MT_TA"]     = variableReplacements.TryGetValue($"MT_{n}_TA",    out var v2) ? v2 : "",
+                    ["MT_TB"]     = variableReplacements.TryGetValue($"MT_{n}_TB",    out var v3) ? v3 : "",
+                    ["MT_FREQ"]   = variableReplacements.TryGetValue($"MT_{n}_FREQ",  out var v4) ? v4 : "",
+                    ["MT_FREKANS"]= variableReplacements.TryGetValue($"MT_{n}_FREQ",  out var v4b) ? v4b : "",
+                    ["MT_DATE"]   = variableReplacements.TryGetValue($"MT_{n}_DATE",  out var v5) ? v5 : "",
+                    ["MT_TARIH"]  = variableReplacements.TryGetValue($"MT_{n}_DATE",  out var v5b) ? v5b : "",
+                    ["MT_X"]      = variableReplacements.TryGetValue($"MT_{n}_X",     out var v6) ? v6 : "",
+                    ["MT_YATAY"]  = variableReplacements.TryGetValue($"MT_{n}_X",     out var v6b) ? v6b : "",
+                    ["MT_Y"]      = variableReplacements.TryGetValue($"MT_{n}_Y",     out var v7) ? v7 : "",
+                    ["MT_DUZEY"]  = variableReplacements.TryGetValue($"MT_{n}_Y",     out var v7b) ? v7b : "",
+                };
+
+                totalReplacements += ProcessElementContainers(newRow, mtReplacements, replacedKeys);
+                table.InsertBefore(newRow, templateRow);
+            }
+
+            // Şablon satırını sil
+            templateRow.Remove();
+        }
+
+        return totalReplacements;
     }
 }

@@ -64,6 +64,7 @@ public partial class App : Application
         // Core & Infrastructure Services
         services.AddSingleton<IVariableService, VariableService>();
         services.AddSingleton<IWordDocumentProcessor, OpenXmlWordProcessor>();
+        services.AddSingleton<IExcelDocumentProcessor, OpenXmlExcelProcessor>();
 
         // License Service
         services.AddSingleton<ILicenseService, LicenseService>();

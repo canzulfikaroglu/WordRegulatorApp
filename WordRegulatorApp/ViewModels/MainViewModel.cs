@@ -87,6 +87,15 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<DrillingWellViewModel> DrillingWells { get; } = new();
 
+    // ================= MİKROTREMÖR ÖLÇÜMÜ DİNAMİK ÖZELLİKLERİ =================
+    [ObservableProperty]
+    private string _microtremorCountInput = "1";
+
+    /// <summary>Kaç mikrotremör ölçümü tutulduğunu gösteren değişken (MICROTREMOR_COUNT)</summary>
+    public int MicrotremorCount => MicrotremorMeasurements.Count;
+
+    public ObservableCollection<MicrotremorMeasurementViewModel> MicrotremorMeasurements { get; } = new();
+
     // ================= FORMASYON DROPDOWN =================
     public IReadOnlyList<WordRegulator.Domain.Entities.FormationDefinition> FormationList { get; }
         = WordRegulator.Application.Services.FormationRepository.All;
@@ -112,10 +121,13 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<VariableItemViewModel> Variables { get; } = new();
     public ICollectionView FilteredVariablesView { get; }
 
-    public MainViewModel(IVariableService variableService, IWordDocumentProcessor documentProcessor)
+    private readonly IExcelDocumentProcessor? _excelProcessor;
+
+    public MainViewModel(IVariableService variableService, IWordDocumentProcessor documentProcessor, IExcelDocumentProcessor? excelProcessor = null)
     {
         _variableService = variableService;
         _documentProcessor = documentProcessor;
+        _excelProcessor = excelProcessor;
 
         _outputDirectoryPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "WordRegulatorOutput");
 
@@ -126,6 +138,7 @@ public partial class MainViewModel : ObservableObject
         SetupVs30Layers();
         SetupVs30Series();
         SetupDrillingWells();
+        SetupMicrotremorMeasurements();
         ScanTemplateDirectory();
     }
 
@@ -302,6 +315,38 @@ public partial class MainViewModel : ObservableObject
         SetupDrillingWells();
     }
 
+    partial void OnMicrotremorCountInputChanged(string value)
+    {
+        SetupMicrotremorMeasurements();
+    }
+
+    private void SetupMicrotremorMeasurements()
+    {
+        if (!int.TryParse(MicrotremorCountInput, out int count) || count < 1)
+            count = 1;
+        if (count > 50) count = 50;
+
+        while (MicrotremorMeasurements.Count < count)
+        {
+            int nextIdx = MicrotremorMeasurements.Count + 1;
+            MicrotremorMeasurements.Add(new MicrotremorMeasurementViewModel(nextIdx));
+        }
+
+        while (MicrotremorMeasurements.Count > count)
+        {
+            MicrotremorMeasurements.RemoveAt(MicrotremorMeasurements.Count - 1);
+        }
+
+        OnPropertyChanged(nameof(MicrotremorCount));
+
+        // MICROTREMOR_COUNT değişkenini güncelle
+        var countVar = Variables.FirstOrDefault(x =>
+            string.Equals(x.Key, "MICROTREMOR_COUNT", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(x.Key, "MİKROTREMOR_SAYISI", StringComparison.OrdinalIgnoreCase));
+        if (countVar != null)
+            countVar.Value = count.ToString();
+    }
+
     private void SetupDrillingWells()
     {
         if (!int.TryParse(DrillingWellCountInput, out int count) || count < 1)
@@ -416,21 +461,31 @@ public partial class MainViewModel : ObservableObject
                 return;
             }
 
-            var files = Directory.GetFiles(TemplateDirectoryPath, "*.docx", SearchOption.TopDirectoryOnly)
-                                 .Where(f => !Path.GetFileName(f).StartsWith("~$"))
-                                 .Select(Path.GetFileName)
-                                 .ToList();
+            var docxFiles = Directory.GetFiles(TemplateDirectoryPath, "*.docx", SearchOption.TopDirectoryOnly)
+                                     .Where(f => !Path.GetFileName(f).StartsWith("~$"))
+                                     .Select(Path.GetFileName)
+                                     .ToList();
 
-            DetectedTemplateCount = files.Count;
-            if (files.Count > 0)
+            var xlsxFiles = Directory.GetFiles(TemplateDirectoryPath, "*.xlsx", SearchOption.TopDirectoryOnly)
+                                     .Where(f => !Path.GetFileName(f).StartsWith("~$"))
+                                     .Select(Path.GetFileName)
+                                     .ToList();
+
+            var allFiles = docxFiles.Concat(xlsxFiles).ToList();
+            DetectedTemplateCount = allFiles.Count;
+
+            if (allFiles.Count > 0)
             {
-                DetectedTemplateNames = $"Bulunan Şablonlar ({files.Count}): " + string.Join(", ", files);
-                SetStatus($"Şablon klasöründe {files.Count} adet Word dosyası tespit edildi.", "Info");
+                var parts = new List<string>();
+                if (docxFiles.Count > 0) parts.Add($"{docxFiles.Count} Word (.docx)");
+                if (xlsxFiles.Count > 0) parts.Add($"{xlsxFiles.Count} Excel (.xlsx)");
+                DetectedTemplateNames = $"Bulunan Şablonlar ({allFiles.Count}): " + string.Join(", ", allFiles);
+                SetStatus($"Şablon klasöründe {string.Join(" ve ", parts)} dosyası tespit edildi.", "Info");
             }
             else
             {
-                DetectedTemplateNames = "Seçilen klasörde *.docx uzantılı dosya bulunamadı.";
-                SetStatus("Seçilen klasörde Word dosyası yok. Lütfen geçerli dosyaları olan bir klasör seçin.", "Error");
+                DetectedTemplateNames = "Seçilen klasörde *.docx veya *.xlsx uzantılı dosya bulunamadı.";
+                SetStatus("Seçilen klasörde Word veya Excel şablonu yok. Lütfen geçerli dosyaları olan bir klasör seçin.", "Error");
             }
         }
         catch (Exception ex)
@@ -856,15 +911,25 @@ public partial class MainViewModel : ObservableObject
             // ===== T0_ALL_SERIES — tüm serimlerin T0 özeti =====
             // Çıktı örneği: "1. Serim T0 = 0,21 sn\n2. Serim T0 = 0,22 sn"
             var t0Parts = new List<string>();
+            var t0DashParts = new List<string>();
             foreach (var s in Vs30Series)
             {
                 string t0Val = string.IsNullOrWhiteSpace(s.T0Input) ? "—" : s.T0Input.Trim();
                 t0Parts.Add($"{s.SeriesNumber}. Serim T0 = {t0Val} sn");
+                t0DashParts.Add(t0Val);
             }
             string t0AllText = string.Join("\n", t0Parts);
             replacements["T0_ALL_SERIES"] = t0AllText;    // {{T0_ALL_SERIES}}
             replacements["ALL_T0"] = t0AllText;            // {{ALL_T0}}
             replacements["T0_OZET"] = t0AllText;           // {{T0_OZET}}
+
+            // ===== T0_DASH — tüm serimlerin T0 değerleri "-" ile birleştirilmiş =====
+            // Çıktı örneği: "0,21 - 0,22 - 0,18"
+            string t0DashText = string.Join(" - ", t0DashParts);
+            replacements["T0_DASH"] = t0DashText;          // {{T0_DASH}}
+            replacements["ALL_T0_DASH"] = t0DashText;      // {{ALL_T0_DASH}}
+            replacements["T0_TUM"] = t0DashText;           // {{T0_TUM}}
+            replacements["T0_LISTE"] = t0DashText;         // {{T0_LISTE}}
 
             // TÜK'e göre tüm serimlerin birleşik Vs30 sonuçları: örn: "1101 / 1062 m/sn" veya "1101 / 1062"
             var vs30NumbersList = new List<string>();
@@ -996,7 +1061,66 @@ public partial class MainViewModel : ObservableObject
             AddAlias("SHEETISLANDPARCEL", "SHEETİSLANDPARCEL");
             AddAlias("PAFTAADAPARSEL", "SHEETİSLANDPARCEL");
 
+            // ===== MİKROTREMÖR ÖLÇÜM DEĞİŞKENLERİ =====
+            int mtCount = MicrotremorMeasurements.Count;
+            replacements["MICROTREMOR_COUNT"]  = mtCount.ToString();  // {{MICROTREMOR_COUNT}}
+            replacements["MİKROTREMOR_SAYISI"] = mtCount.ToString();  // {{MİKROTREMOR_SAYISI}}
+            replacements["MT_COUNT"]           = mtCount.ToString();  // {{MT_COUNT}}
+
+            // Her ölçüm için bireysel değişkenler: {{MT_1_T0}}, {{MT_2_T0}} ...
+            var microtremorDomainItems = new List<MicrotremorMeasurementItem>();
+            foreach (var mt in MicrotremorMeasurements)
+            {
+                int n = mt.MeasurementNo;
+                string t0mt  = mt.T0;
+                string tamt  = mt.Ta;
+                string tbmt  = mt.Tb;
+                string freqmt = mt.Frequency;
+                string datemt = mt.Date;
+                string xmt   = mt.HorizontalCoordinate;
+                string ymt   = mt.VerticalCoordinate;
+
+                // Bireysel değişkenler
+                replacements[$"MT_{n}_NO"]    = n.ToString();
+                replacements[$"MT_{n}_T0"]    = t0mt;
+                replacements[$"MT_{n}_TA"]    = tamt;
+                replacements[$"MT_{n}_TB"]    = tbmt;
+                replacements[$"MT_{n}_FREQ"]  = freqmt;
+                replacements[$"MT_{n}_FREKANS"] = freqmt;
+                replacements[$"MT_{n}_DATE"]  = datemt;
+                replacements[$"MT_{n}_TARIH"] = datemt;
+                replacements[$"MT_{n}_X"]     = xmt;
+                replacements[$"MT_{n}_YATAY"] = xmt;
+                replacements[$"MT_{n}_Y"]     = ymt;
+                replacements[$"MT_{n}_DUZEY"] = ymt;
+
+                microtremorDomainItems.Add(new MicrotremorMeasurementItem
+                {
+                    MeasurementNo         = n,
+                    T0                    = t0mt,
+                    Ta                    = tamt,
+                    Tb                    = tbmt,
+                    Frequency             = freqmt,
+                    Date                  = datemt,
+                    HorizontalCoordinate  = xmt,
+                    VerticalCoordinate    = ymt
+                });
+            }
+
             var batchResult = await _documentProcessor.ProcessTemplateDirectoryAsync(TemplateDirectoryPath, targetSubfolder, replacements, domainWells, domainVs30Series);
+
+            // ===== EXCEL İŞLEME — Her sondaj kuyusu için ayrı .xlsx =====
+            if (_excelProcessor != null)
+            {
+                var excelBatchResult = await _excelProcessor.ProcessExcelTemplatesForWellsAsync(
+                    TemplateDirectoryPath, targetSubfolder, replacements, domainWells);
+
+                // Excel sonuçlarını Word sonucuna ekle
+                batchResult.ProcessedFileCount += excelBatchResult.ProcessedFileCount;
+                batchResult.TotalReplacementsCount += excelBatchResult.TotalReplacementsCount;
+                batchResult.OutputFiles.AddRange(excelBatchResult.OutputFiles);
+                batchResult.Errors.AddRange(excelBatchResult.Errors);
+            }
 
             if (batchResult.Success)
             {
