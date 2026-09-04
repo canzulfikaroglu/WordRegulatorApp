@@ -1,5 +1,6 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
 using System.IO;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -28,25 +29,23 @@ public class LicenseService : ILicenseService
 
         var gistUrl = GetGistUrl();
 
-        if (!string.IsNullOrWhiteSpace(gistUrl))
+        if (string.IsNullOrWhiteSpace(gistUrl))
+            return LicenseCheckResult.Invalid("Lisans sunucu adresi (GistUrl) yapılandırılamadı.");
+
+        try
         {
-            try
-            {
-                var manifest = await FetchManifestFromGistAsync(gistUrl);
-                var result = ValidateKey(licenseKey, manifest);
+            var manifest = await FetchManifestFromGistAsync(gistUrl);
+            var result = ValidateKey(licenseKey, manifest);
 
-                if (result.IsValid)
-                    SaveCache(licenseKey); 
+            if (result.IsValid)
+                SaveCache(licenseKey); 
 
-                return result;
-            }
-            catch (Exception)
-            {
-
-            }
+            return result;
         }
-
-        return CheckOfflineCache(licenseKey);
+        catch (Exception)
+        {
+            return LicenseCheckResult.Invalid("İnternet bağlantısı bulunamadı veya lisans sunucusuna ulaşılamadı. Uygulamayı kullanabilmek için aktif bir internet bağlantısı gereklidir.");
+        }
     }
 
     public string? GetStoredLicenseKey()

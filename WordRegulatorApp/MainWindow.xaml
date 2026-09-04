@@ -1,4 +1,4 @@
-﻿<Window x:Class="WordRegulatorApp.MainWindow"
+<Window x:Class="WordRegulatorApp.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -32,46 +32,56 @@
 
         
         <Border Grid.Row="0" Background="{StaticResource PanelDarkBrush}" CornerRadius="12" Padding="20,16" Margin="0,0,0,14" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Column="0">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border Background="{StaticResource AccentCyanBrush}" CornerRadius="6" Width="36" Height="36" Margin="0,0,12,0">
-                            <TextBlock Text="📄" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="WordRegulator" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                            <TextBlock Text="Çoklu Word Doküman Şablon &amp; Değişken Otomasyon Uygulaması" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                    <StackPanel Grid.Column="0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Background="{StaticResource AccentCyanBrush}" CornerRadius="6" Width="36" Height="36" Margin="0,0,12,0">
+                                <TextBlock Text="📄" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="WordRegulator" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Çoklu Word Doküman Şablon &amp; Değişken Otomasyon Uygulaması" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
                         </StackPanel>
                     </StackPanel>
-                </StackPanel>
 
-                
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Background="#20202B" CornerRadius="8" Padding="12,6" Margin="0,0,8,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Değişkenler: " Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
-                            <TextBlock Text="{Binding TotalVariableCount}" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
-                        </StackPanel>
-                    </Border>
-                    <Border Background="#20202B" CornerRadius="8" Padding="12,6" Margin="0,0,8,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Bağımsız: " Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
-                            <TextBlock Text="{Binding IndependentCount}" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}" FontSize="12"/>
-                        </StackPanel>
-                    </Border>
-                    <Border Background="#20202B" CornerRadius="8" Padding="12,6" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Bağımlı: " Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
-                            <TextBlock Text="{Binding DependentCount}" FontWeight="Bold" Foreground="{StaticResource AccentPurpleBrush}" FontSize="12"/>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </Grid>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Background="#20202B" CornerRadius="8" Padding="12,6" Margin="0,0,8,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Değişkenler: " Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                <TextBlock Text="{Binding TotalVariableCount}" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="#20202B" CornerRadius="8" Padding="12,6" Margin="0,0,8,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Bağımsız: " Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                <TextBlock Text="{Binding IndependentCount}" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}" FontSize="12"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="#20202B" CornerRadius="8" Padding="12,6" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Bağımlı: " Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                <TextBlock Text="{Binding DependentCount}" FontWeight="Bold" Foreground="{StaticResource AccentPurpleBrush}" FontSize="12"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+
+                <Border Visibility="{Binding IsOffline, Converter={StaticResource BoolToVisConverter}}"
+                        Background="#3D1414" BorderBrush="#DC2626" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,12,0,0">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="⚠️ " FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="Aktif internet bağlantısı algılanamadı! Rapor oluşturmak ve sistemi kullanabilmek için internet bağlantısı zorunludur." 
+                                   FontWeight="SemiBold" Foreground="#FCA5A5" FontSize="12" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
         </Border>
 
         

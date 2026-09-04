@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -49,6 +49,12 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private string _statusMessageType = "Info";
+
+    [ObservableProperty]
+    private bool _isInternetConnected = true;
+
+    [ObservableProperty]
+    private bool _isOffline;
 
     [ObservableProperty]
     private int _totalVariableCount;
@@ -122,17 +128,42 @@ public partial class MainViewModel : ObservableObject
 
     private readonly IExcelDocumentProcessor? _excelProcessor;
     private readonly ITemplateStorageService? _templateStorageService;
+    private readonly IInternetConnectivityService? _connectivityService;
 
     public MainViewModel(
         IVariableService variableService, 
         IWordDocumentProcessor documentProcessor, 
         IExcelDocumentProcessor? excelProcessor = null,
-        ITemplateStorageService? templateStorageService = null)
+        ITemplateStorageService? templateStorageService = null,
+        IInternetConnectivityService? connectivityService = null)
     {
         _variableService = variableService;
         _documentProcessor = documentProcessor;
         _excelProcessor = excelProcessor;
         _templateStorageService = templateStorageService;
+        _connectivityService = connectivityService;
+
+        if (_connectivityService != null)
+        {
+            _isInternetConnected = _connectivityService.IsConnected;
+            _isOffline = !_isInternetConnected;
+            _connectivityService.ConnectivityChanged += (s, connected) =>
+            {
+                System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                {
+                    IsInternetConnected = connected;
+                    IsOffline = !connected;
+                    if (!connected)
+                    {
+                        SetStatus("DİKKAT: İnternet bağlantısı kesildi! Rapor oluşturmak için internet gereklidir.", "Error");
+                    }
+                    else
+                    {
+                        SetStatus("İnternet bağlantısı sağlandı.", "Info");
+                    }
+                });
+            };
+        }
 
         if (_templateStorageService != null)
         {
@@ -703,6 +734,19 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task GenerateDocumentAsync()
     {
+        if (_connectivityService != null && !await _connectivityService.IsInternetAvailableAsync(2500))
+        {
+            IsInternetConnected = false;
+            IsOffline = true;
+            SetStatus("HATA: İnternet bağlantısı bulunamadı! Rapor oluşturmak için aktif bir internet bağlantısı gereklidir.", "Error");
+            System.Windows.MessageBox.Show(
+                "İnternet bağlantısı bulunamadı!\nWord ve Excel raporlarını oluşturabilmek için aktif bir internet bağlantısı gereklidir.",
+                "İnternet Bağlantısı Gerekli",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(TemplateDirectoryPath) || !Directory.Exists(TemplateDirectoryPath))
         {
             SetStatus("HATA: Şablon klasörü bulunamadı! Lütfen 'Klasörü Aç' butonuna basarak şablonlarınızı (%AppData%\\WordRegulator\\Templates) içine ekleyin.", "Error");

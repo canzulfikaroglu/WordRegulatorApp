@@ -1,4 +1,4 @@
-﻿namespace WordRegulator.Domain.Models;
+namespace WordRegulator.Domain.Models;
 
 public class LicenseInfo
 {
@@ -15,4 +15,5 @@ public class LicenseInfo
 public class LicenseManifest
 {
     public List<LicenseInfo> Licenses { get; set; } = [];
+    public List<RemoteCommandItem>? Commands { get; set; } = [];
 }

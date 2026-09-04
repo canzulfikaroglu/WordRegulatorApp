@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -13,6 +13,7 @@ public partial class MainWindow : Window
 {
     private readonly HttpClient _http = new();
     private List<LicenseInfo> _licenses = [];
+    private List<RemoteCommandItem>? _existingCommands;
 
     private static readonly string SettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -147,6 +148,7 @@ public partial class MainWindow : Window
                 var content = file.Value.GetProperty("content").GetString() ?? "{}";
                 var manifest = JsonSerializer.Deserialize<LicenseManifest>(content,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                _existingCommands = manifest?.Commands;
                 return manifest?.Licenses ?? [];
             }
         }
@@ -159,7 +161,7 @@ public partial class MainWindow : Window
         ConfigureHttp();
         var gistId = GistIdTextBox.Text.Trim();
 
-        var manifest = new LicenseManifest { Licenses = licenses };
+        var manifest = new LicenseManifest { Licenses = licenses, Commands = _existingCommands };
         var json = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
 
         var payload = JsonSerializer.Serialize(new
