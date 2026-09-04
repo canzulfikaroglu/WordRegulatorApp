@@ -1,4 +1,4 @@
-namespace WordRegulator.Domain.Enums;
+﻿namespace WordRegulator.Domain.Enums;
 
 public enum VariableCategory
 {
@@ -9,6 +9,6 @@ public enum VariableCategory
 
 public enum VariableType
 {
-    Independent, // Bağımsız (Kullanıcı manuel girer)
-    Dependent    // Bağımlı (Otomatik hesaplanır/birleştirilir, istenirse düzenlenebilir)
+    Independent, 
+    Dependent    
 }

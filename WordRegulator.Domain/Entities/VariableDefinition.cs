@@ -1,4 +1,4 @@
-
+﻿
 using WordRegulator.Domain.Enums;
 
 namespace WordRegulator.Domain.Entities;
@@ -11,7 +11,7 @@ public class VariableDefinition
     public VariableCategory Category { get; set; }
     public VariableType Type { get; set; }
     public string DefaultValue { get; set; } = string.Empty;
-    public string? Formula { get; set; } // Bağımlı değişkenler için formül veya şablon metin (örn: "{SHEET} PAFTA {İSLAND} ADA {PARCEL} PARSEL")
+    public string? Formula { get; set; } 
     public int Order { get; set; }
 
     public VariableDefinition() { }

@@ -1,9 +1,9 @@
-<Application x:Class="WordRegulatorApp.App"
+﻿<Application x:Class="WordRegulatorApp.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Application.Resources>
         <ResourceDictionary>
-            <!-- COLOR PALETTE (PREMIUM DARK AESTHETIC) -->
+            
             <Color x:Key="BgDarkColor">#0F0F13</Color>
             <Color x:Key="PanelDarkColor">#17171F</Color>
             <Color x:Key="CardDarkColor">#20202B</Color>
@@ -34,7 +34,7 @@
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}"/>
             <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}"/>
 
-            <!-- STYLED TEXTBOX -->
+            
             <Style x:Key="DarkTextBoxStyle" TargetType="TextBox">
                 <Setter Property="Background" Value="#13131A"/>
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
@@ -81,7 +81,7 @@
                 </Setter>
             </Style>
 
-            <!-- SECONDARY BUTTON STYLE -->
+            
             <Style x:Key="SecondaryButtonStyle" TargetType="Button">
                 <Setter Property="Background" Value="#272736"/>
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
@@ -115,7 +115,7 @@
                 </Setter>
             </Style>
 
-            <!-- FLOATING GENERATE BUTTON STYLE ("Oluştur") -->
+            
             <Style x:Key="GenerateButtonStyle" TargetType="Button">
                 <Setter Property="Background">
                     <Setter.Value>
@@ -169,7 +169,7 @@
                 </Setter>
             </Style>
 
-            <!-- DARK SCROLLBAR -->
+            
             <Style TargetType="ScrollBar">
                 <Setter Property="Background" Value="Transparent"/>
                 <Setter Property="Width" Value="8"/>

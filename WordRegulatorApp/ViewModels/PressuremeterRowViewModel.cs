@@ -1,25 +1,22 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace WordRegulatorApp.ViewModels;
 
-/// <summary>
-/// Presiyometre deneyi tek satır verisi (Derinlik | PL | PL* | Em).
-/// </summary>
 public partial class PressuremeterRowViewModel : ObservableObject
 {
     public event EventHandler? RowChanged;
 
     [ObservableProperty]
-    private string _depth = string.Empty;           // Derinlik (m)
+    private string _depth = string.Empty;           
 
     [ObservableProperty]
-    private string _limitPressure = string.Empty;   // Limit Basınç PL
+    private string _limitPressure = string.Empty;   
 
     [ObservableProperty]
-    private string _netLimitPressure = string.Empty; // Net Limit Basınç PL*
+    private string _netLimitPressure = string.Empty; 
 
     [ObservableProperty]
-    private string _elasticityModulus = string.Empty; // Elastisite Modülü Em
+    private string _elasticityModulus = string.Empty; 
 
     public int RowIndex { get; set; }
 

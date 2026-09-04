@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using WordRegulator.Domain.Entities;
 using WordRegulator.Domain.Enums;
@@ -15,7 +15,7 @@ public partial class VariableItemViewModel : ObservableObject
     public VariableCategory Category => _definition.Category;
     public VariableType Type => _definition.Type;
     public bool IsDependent => Type == VariableType.Dependent;
-    public bool IsEnabled => !IsDependent; // Bağımlı değişkenler kapalı (disabled)
+    public bool IsEnabled => !IsDependent; 
     public bool IsReadOnly => IsDependent;
     public int Order => _definition.Order;
 

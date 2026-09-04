@@ -1,17 +1,13 @@
-namespace WordRegulator.Domain.Models;
-
+﻿namespace WordRegulator.Domain.Models;
 
 public class LicenseInfo
 {
 
     public string Key { get; set; } = string.Empty;
 
-
     public string Customer { get; set; } = string.Empty;
 
-
     public bool Active { get; set; }
-
 
     public DateTime Expires { get; set; }
 }

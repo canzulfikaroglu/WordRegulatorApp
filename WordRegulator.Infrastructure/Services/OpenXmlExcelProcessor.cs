@@ -7,20 +7,15 @@ using WordRegulator.Domain.Models;
 
 namespace WordRegulator.Infrastructure.Services;
 
-/// <summary>
-/// Her sondaj kuyusu için ayrı bir .xlsx dosyası üretir.
-/// Excel şablonundaki {{DEGISKEN}} işaretçileri sondaj verisiyle değiştirilir.
-/// Yeraltı suyu ölçümleri için şablon satır klonlama desteklenir.
-/// </summary>
 public class OpenXmlExcelProcessor : IExcelDocumentProcessor
 {
     private static readonly Regex PlaceholderRegex = new Regex(
         @"\{\{\s*([a-zA-Z0-9_İıŞşĞğÜüÖöÇç\-]+)\s*\}\}",
         RegexOptions.Compiled);
 
-    // =========================================================================
-    // PUBLIC — Birden fazla kuyu için şablon dizinini işle
-    // =========================================================================
+    
+    
+    
     public async Task<BatchProcessResult> ProcessExcelTemplatesForWellsAsync(
         string templateDirectoryPath,
         string outputDirectoryPath,
@@ -35,14 +30,14 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
             if (!Directory.Exists(outputDirectoryPath))
                 Directory.CreateDirectory(outputDirectoryPath);
 
-            // Temp/lock dosyalarını hariç tutarak tüm .xlsx şablonlarını al
+            
             var templates = Directory
                 .GetFiles(templateDirectoryPath, "*.xlsx", SearchOption.TopDirectoryOnly)
                 .Where(f => !Path.GetFileName(f).StartsWith("~$"))
                 .ToList();
 
             if (templates.Count == 0)
-                return batchResult; // Excel şablonu yoksa sessizce çık
+                return batchResult; 
 
             var wellList = wells.ToList();
 
@@ -52,9 +47,9 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    // Çıktı dosya adı: SK-1.xlsx, SK-2.xlsx ... (orijinal şablon adı korunmaz)
-                    // Şablonun orijinal adına kuyu adını ekleyerek üret:
-                    // "SondajLogu.xlsx" → "SondajLogu_SK-1.xlsx"
+                    
+                    
+                    
                     string templateBaseName = Path.GetFileNameWithoutExtension(templatePath);
                     string outputFileName = $"{templateBaseName}_{well.WellName}.xlsx";
                     string outputPath = Path.Combine(outputDirectoryPath, outputFileName);
@@ -86,9 +81,9 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
         }
     }
 
-    // =========================================================================
-    // PUBLIC — Tek kuyu için tek Excel dosyası üret
-    // =========================================================================
+    
+    
+    
     public async Task<DocumentProcessResult> ProcessExcelForWellAsync(
         string templatePath,
         string outputPath,
@@ -107,7 +102,7 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
                 return result;
             }
 
-            // Şablonu çıktı yoluna kopyala
+            
             File.Copy(templatePath, outputPath, overwrite: true);
 
             await Task.Run(() =>
@@ -116,7 +111,7 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
                 var workbookPart = doc.WorkbookPart;
                 if (workbookPart == null) return;
 
-                // Kuyu bazlı replacements oluştur (global + kuya özgü)
+                
                 var wellReplacements = BuildWellReplacements(well, globalReplacements);
 
                 int totalReplacements = 0;
@@ -128,10 +123,10 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
                     var sheetData = sheet.GetFirstChild<SheetData>();
                     if (sheetData == null) continue;
 
-                    // Yeraltı suyu ölçüm satırlarını klonla (şablon satır)
-                    totalReplacements += ProcessWaterMeasurementRows(sheetData, well, replacedKeys, doc);
+                    
+                    totalReplacements += ProcessWaterMeasurementRows(sheet, sheetData, well, replacedKeys, doc);
 
-                    // Tüm hücrelerdeki placeholder'ları değiştir
+                    
                     totalReplacements += ReplaceInWorksheet(worksheetPart, wellReplacements, replacedKeys, doc);
 
                     sheet.Save();
@@ -156,10 +151,11 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
         }
     }
 
-    // =========================================================================
-    // PRIVATE — Yeraltı suyu ölçüm satırlarını klonla
-    // =========================================================================
+    
+    
+    
     private static int ProcessWaterMeasurementRows(
+        Worksheet sheet,
         SheetData sheetData,
         DrillingWellItem well,
         HashSet<string> replacedKeys,
@@ -171,14 +167,16 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
         Row? templateRow = null;
         int templateRowIndex = -1;
 
-        // {{WELL_MEASURE_DATE}} veya {{WELL_WATER_DEPTH}} içeren satırı bul
+        
         for (int i = 0; i < rows.Count; i++)
         {
             var rowText = GetRowText(rows[i], doc);
             if (rowText.Contains("WELL_MEASURE_DATE", StringComparison.OrdinalIgnoreCase) ||
                 rowText.Contains("WELL_WATER_DEPTH", StringComparison.OrdinalIgnoreCase) ||
                 rowText.Contains("SONDAJ_OLCUM_TARIHI", StringComparison.OrdinalIgnoreCase) ||
-                rowText.Contains("SONDAJ_SU_DERINLIK", StringComparison.OrdinalIgnoreCase))
+                rowText.Contains("SONDAJ_SU_DERINLIK", StringComparison.OrdinalIgnoreCase) ||
+                rowText.Contains("{{DAY}}", StringComparison.OrdinalIgnoreCase) ||
+                rowText.Contains("{{GUN}}", StringComparison.OrdinalIgnoreCase))
             {
                 templateRow = rows[i];
                 templateRowIndex = i;
@@ -190,12 +188,23 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
             return 0;
 
         uint originalRowNumber = templateRow.RowIndex?.Value ?? (uint)(templateRowIndex + 1);
-        uint insertAtRowNumber = originalRowNumber;
+        int measureCount = well.Measurements.Count;
+        int delta = measureCount - 1;
 
-        // Şablon satırın üstüne her ölçüm için yeni satır ekle
-        foreach (var measurement in well.Measurements)
+        
+        if (delta > 0)
         {
-            var newRow = CloneRow(templateRow, insertAtRowNumber, doc);
+            ShiftRowNumbers(sheetData, originalRowNumber + 1, delta);
+            ShiftMergeCells(sheet, originalRowNumber + 1, delta);
+        }
+
+        
+        for (int i = 0; i < measureCount; i++)
+        {
+            var measurement = well.Measurements[i];
+            uint currentRowIndex = (uint)(originalRowNumber + i);
+
+            var newRow = CloneRow(templateRow, currentRowIndex, doc);
             var measureReplacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["WELL_MEASURE_DATE"]     = measurement.MeasurementDate,
@@ -204,23 +213,25 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
                 ["WELL_WATER_DEPTH"]      = measurement.WaterDepth,
                 ["WELL_GW_DEPTH"]         = measurement.WaterDepth,
                 ["SONDAJ_SU_DERINLIK"]    = measurement.WaterDepth,
+                ["DAY"]                   = measurement.Day,
+                ["GUN"]                   = measurement.Day,
+                ["WELL_DAY"]              = measurement.Day,
+                ["ACIKLAMA"]              = measurement.Day,
             };
 
             totalReplacements += ReplaceInRow(newRow, measureReplacements, replacedKeys, doc);
             sheetData.InsertBefore(newRow, templateRow);
-            insertAtRowNumber++;
         }
 
-        // Şablon satırı sil ve sonraki satırların numaralarını güncelle
+        
         templateRow.Remove();
-        ShiftRowNumbers(sheetData, insertAtRowNumber);
 
         return totalReplacements;
     }
 
-    // =========================================================================
-    // PRIVATE — Worksheet içindeki tüm hücrelerde replace yap
-    // =========================================================================
+    
+    
+    
     private static int ReplaceInWorksheet(
         WorksheetPart worksheetPart,
         IDictionary<string, string> replacements,
@@ -276,20 +287,20 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
         return count;
     }
 
-    // =========================================================================
-    // PRIVATE — Satır klonlama yardımcıları
-    // =========================================================================
+    
+    
+    
     private static Row CloneRow(Row source, uint newRowIndex, SpreadsheetDocument doc)
     {
         var newRow = (Row)source.CloneNode(true);
         newRow.RowIndex = new DocumentFormat.OpenXml.UInt32Value(newRowIndex);
 
-        // Hücre referanslarını güncelle (A5 → A6 vb.)
+        
         foreach (var cell in newRow.Elements<Cell>())
         {
             if (cell.CellReference?.Value != null)
             {
-                // Sütun harfini koru, satır numarasını güncelle
+                
                 string colRef = GetColumnReference(cell.CellReference.Value);
                 cell.CellReference = new DocumentFormat.OpenXml.StringValue($"{colRef}{newRowIndex}");
             }
@@ -298,22 +309,73 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
         return newRow;
     }
 
-    private static void ShiftRowNumbers(SheetData sheetData, uint fromRowNumber)
+    private static void ShiftRowNumbers(SheetData sheetData, uint fromRowNumber, int delta)
     {
-        // Silinen şablon satırdan sonraki satırların numaralarını 1 azalt (ekleme durumu için gerekli değil,
-        // ancak remove sonrası tutarsızlıkları önler)
-        // Bu basit implementasyonda atlıyoruz; OpenXml genelde bunu kendi halleder.
+        if (delta <= 0) return;
+
+        
+        var subsequentRows = sheetData.Elements<Row>()
+            .Where(r => r.RowIndex != null && r.RowIndex.Value >= fromRowNumber)
+            .OrderByDescending(r => r.RowIndex!.Value)
+            .ToList();
+
+        foreach (var row in subsequentRows)
+        {
+            uint oldIndex = row.RowIndex!.Value;
+            uint newIndex = (uint)(oldIndex + delta);
+            row.RowIndex = new DocumentFormat.OpenXml.UInt32Value(newIndex);
+
+            foreach (var cell in row.Elements<Cell>())
+            {
+                if (cell.CellReference?.Value != null)
+                {
+                    string colRef = GetColumnReference(cell.CellReference.Value);
+                    cell.CellReference = new DocumentFormat.OpenXml.StringValue($"{colRef}{newIndex}");
+                }
+            }
+        }
+    }
+
+    private static void ShiftMergeCells(Worksheet sheet, uint fromRowNumber, int delta)
+    {
+        if (delta <= 0) return;
+        var mergeCells = sheet.GetFirstChild<MergeCells>();
+        if (mergeCells == null) return;
+
+        foreach (var mergeCell in mergeCells.Elements<MergeCell>())
+        {
+            if (mergeCell.Reference?.Value == null) continue;
+            string refVal = mergeCell.Reference.Value;
+            var parts = refVal.Split(':');
+            if (parts.Length != 2) continue;
+
+            string startCol = GetColumnReference(parts[0]);
+            string endCol = GetColumnReference(parts[1]);
+
+            string startRowNumStr = new string(parts[0].Where(char.IsDigit).ToArray());
+            string endRowNumStr = new string(parts[1].Where(char.IsDigit).ToArray());
+
+            if (uint.TryParse(startRowNumStr, out uint startRow) && uint.TryParse(endRowNumStr, out uint endRow))
+            {
+                if (startRow >= fromRowNumber)
+                {
+                    startRow = (uint)(startRow + delta);
+                    endRow = (uint)(endRow + delta);
+                    mergeCell.Reference = $"{startCol}{startRow}:{endCol}{endRow}";
+                }
+            }
+        }
     }
 
     private static string GetColumnReference(string cellReference)
     {
-        // "AB12" → "AB"
+        
         return new string(cellReference.Where(char.IsLetter).ToArray());
     }
 
-    // =========================================================================
-    // PRIVATE — Hücre değeri okuma/yazma (shared strings desteği ile)
-    // =========================================================================
+    
+    
+    
     private static string? GetCellValue(Cell cell, SpreadsheetDocument doc)
     {
         if (cell.DataType?.Value == CellValues.SharedString)
@@ -337,7 +399,7 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
     {
         if (cell.DataType?.Value == CellValues.SharedString)
         {
-            // Shared string'i inline string'e çevir
+            
             cell.DataType = new DocumentFormat.OpenXml.EnumValue<CellValues>(CellValues.InlineString);
             cell.RemoveAllChildren();
             var iStr = new InlineString();
@@ -356,7 +418,7 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
         }
         else
         {
-            // Metin hücresi — inline string olarak yaz
+            
             cell.DataType = new DocumentFormat.OpenXml.EnumValue<CellValues>(CellValues.InlineString);
             cell.RemoveAllChildren();
             var iStr = new InlineString();
@@ -370,26 +432,26 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
         return string.Concat(row.Elements<Cell>().Select(c => GetCellValue(c, doc) ?? string.Empty));
     }
 
-    // =========================================================================
-    // PRIVATE — Replacement dictionary
-    // =========================================================================
+    
+    
+    
     private static Dictionary<string, string> BuildWellReplacements(
         DrillingWellItem well,
         IDictionary<string, string> globalReplacements)
     {
         var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        // Global değişkenleri kopyala (proje adı, il, ilçe vb.)
+        
         foreach (var kvp in globalReplacements)
             d[kvp.Key] = kvp.Value;
 
-        // Kuya özgü değişkenler (global'i override eder)
+        
         d["WELL_NO"]             = well.WellName;
         d["WELL_NAME"]           = well.WellName;
         d["SONDAJ_NO"]           = well.WellName;
         d["SK_NAME"]             = well.WellName;
 
-        // Koordinatlar (X = Enlem, Y = Boylam — Excel'deki sıraya göre)
+        
         d["WELL_LAT"]            = well.Latitude;
         d["SONDAJ_ENLEM"]        = well.Latitude;
         d["KOORDINAT_X"]         = well.Latitude;
@@ -400,7 +462,7 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
         d["KOORDINAT_Y"]         = well.Longitude;
         d["WELL_Y"]              = well.Longitude;
 
-        // Kotlar & Derinlik
+        
         d["WELL_GROUNDKOT"]      = well.GroundKot;
         d["SONDAJ_ARAZI_KOTU"]   = well.GroundKot;
         d["SONDAJ_KOTU"]         = well.GroundKot;
@@ -413,7 +475,7 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
         d["SONDAJ_DERINLIK"]     = well.DepthMeters.ToString("F2", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
         d["SONDAJ_DERINLIGI"]    = well.DepthMeters.ToString("F2", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
 
-        // Tarihler
+        
         d["WELL_START"]          = well.StartDate;
         d["SONDAJ_BASLANGIC"]    = well.StartDate;
         d["BASLAMA_TARIHI"]      = well.StartDate;
@@ -421,14 +483,14 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
         d["SONDAJ_BITIS"]        = well.FinishDate;
         d["BITIS_TARIHI"]        = well.FinishDate;
 
-        // Su & Durum
+        
         d["WELL_RESULT"]         = well.GroundwaterStatus;
         d["WELL_WATER"]          = well.GroundwaterStatus;
         d["SONDAJ_SONUC"]        = well.GroundwaterStatus;
         d["WELL_COLLAPSED"]      = well.IsCollapsed ? "Evet" : "Hayır";
         d["SONDAJ_COKME"]        = well.IsCollapsed ? "Evet" : "Hayır";
 
-        // İlk ölçüm değerleri (tekil hücre referansları için)
+        
         var firstMeasure = well.Measurements.FirstOrDefault();
         d["WELL_MEASURE_DATE"]     = firstMeasure?.MeasurementDate ?? "";
         d["WELL_MEASUREMENT_DATE"] = firstMeasure?.MeasurementDate ?? "";
@@ -436,13 +498,17 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
         d["WELL_WATER_DEPTH"]      = firstMeasure?.WaterDepth ?? (well.IsCollapsed ? "Kuyu çökmüş" : "");
         d["WELL_GW_DEPTH"]         = firstMeasure?.WaterDepth ?? "";
         d["SONDAJ_SU_DERINLIK"]    = firstMeasure?.WaterDepth ?? "";
+        d["DAY"]                   = firstMeasure?.Day ?? "";
+        d["GUN"]                   = firstMeasure?.Day ?? "";
+        d["WELL_DAY"]              = firstMeasure?.Day ?? "";
+        d["ACIKLAMA"]              = firstMeasure?.Day ?? "";
 
         return d;
     }
 
-    // =========================================================================
-    // PRIVATE — Anahtar arama (Türkçe normalize ile)
-    // =========================================================================
+    
+    
+    
     private static bool TryGetValue(IDictionary<string, string> dict, string key, out string value)
     {
         if (dict.TryGetValue(key, out var v))

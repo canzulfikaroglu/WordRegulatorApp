@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using WordRegulator.Application.Interfaces;
 using WordRegulator.Application.Services;
@@ -21,13 +21,13 @@ public partial class App : Application
         ConfigureServices(services);
         ServiceProvider = services.BuildServiceProvider();
 
-        // ── Lisans Kontrolü ─────────────────────────────────────────────────────
+        
         var licenseService = ServiceProvider.GetRequiredService<ILicenseService>();
         var storedKey = licenseService.GetStoredLicenseKey();
 
         if (string.IsNullOrWhiteSpace(storedKey))
         {
-            // İlk kurulum: Lisans anahtarı giriş ekranını göster
+            
             var licenseWindow = ServiceProvider.GetRequiredService<LicenseKeyWindow>();
             licenseWindow.ShowDialog();
 
@@ -39,7 +39,7 @@ public partial class App : Application
         }
         else
         {
-            // Günlük kontrol: Kayıtlı anahtarı doğrula
+            
             var result = await licenseService.CheckLicenseAsync(storedKey);
 
             if (!result.IsValid)
@@ -53,7 +53,9 @@ public partial class App : Application
                 return;
             }
         }
-        // ────────────────────────────────────────────────────────────────────────
+        
+        var templateService = ServiceProvider.GetRequiredService<ITemplateStorageService>();
+        templateService.EnsureDirectoryExists();
 
         var mainWindow = ServiceProvider.GetRequiredService<MainWindow>();
         mainWindow.Show();
@@ -61,18 +63,19 @@ public partial class App : Application
 
     private static void ConfigureServices(IServiceCollection services)
     {
-        // Core & Infrastructure Services
+        
         services.AddSingleton<IVariableService, VariableService>();
         services.AddSingleton<IWordDocumentProcessor, OpenXmlWordProcessor>();
         services.AddSingleton<IExcelDocumentProcessor, OpenXmlExcelProcessor>();
+        services.AddSingleton<ITemplateStorageService, WordRegulatorApp.Services.TemplateStorageService>();
 
-        // License Service
+        
         services.AddSingleton<ILicenseService, LicenseService>();
 
-        // ViewModels
+        
         services.AddTransient<MainViewModel>();
 
-        // Views
+        
         services.AddTransient<MainWindow>();
         services.AddTransient<LicenseKeyWindow>();
     }

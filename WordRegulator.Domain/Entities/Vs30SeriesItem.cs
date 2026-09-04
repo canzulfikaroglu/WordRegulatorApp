@@ -1,9 +1,9 @@
-namespace WordRegulator.Domain.Entities;
+﻿namespace WordRegulator.Domain.Entities;
 
 public class Vs30SeriesItem
 {
     public int SeriesNumber { get; set; }
-    public string SeriesName { get; set; } = string.Empty; // Örn: SS-1, SS-2
+    public string SeriesName { get; set; } = string.Empty; 
     public double KotStart { get; set; }
     public double KotEnd { get; set; }
     public double KotAverage { get; set; }
@@ -12,18 +12,18 @@ public class Vs30SeriesItem
     public double AValue { get; set; }
     public string T0 { get; set; } = string.Empty;
     public string Vs30Result { get; set; } = string.Empty;
-    public string SurfaceVs30 { get; set; } = string.Empty; // Yüzeyde ölçülen VS30 (elle girilir)
+    public string SurfaceVs30 { get; set; } = string.Empty; 
     public string Formula { get; set; } = string.Empty;
     public string FormulaFull { get; set; } = string.Empty;
     public List<Vs30LayerItem> Layers { get; set; } = new();
 
-    // ===== Sismik Koordinatlar =====
+    
     public string XStart  { get; set; } = string.Empty;
     public string YStart  { get; set; } = string.Empty;
     public string XFinish { get; set; } = string.Empty;
     public string YFinish { get; set; } = string.Empty;
 
-    // ===== Tabaka Modülleri =====
+    
     public string PoissonLayer1         { get; set; } = string.Empty;
     public string PoissonLayer2         { get; set; } = string.Empty;
     public string ShearModulusLayer1    { get; set; } = string.Empty;

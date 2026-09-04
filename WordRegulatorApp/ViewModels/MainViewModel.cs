@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -45,7 +45,7 @@ public partial class MainViewModel : ObservableObject
     private bool _isProcessing;
 
     [ObservableProperty]
-    private string _statusMessage = "Lütfen bir Şablon Klasörü seçin (Klasör Seç butonunu kullanabilirsiniz).";
+    private string _statusMessage = "Hazır. Şablonlar otomatik yüklendi, çıktı klasörünü belirleyip başlayabilirsiniz.";
 
     [ObservableProperty]
     private string _statusMessageType = "Info";
@@ -59,7 +59,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private int _dependentCount;
 
-    // ================= VS30 HESAPLAYICI DİNAMİK ÖZELLİKLERİ =================
+    
     public List<int> Vs30LayerCountOptions { get; } = new() { 4, 5 };
 
     [ObservableProperty]
@@ -71,8 +71,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _baseTopLevelInput = "-3,24(35,57)";
 
-    // DfInput/Df artık sadece tabaka paneli referansı için bırakıldı;
-    // serim bazlı Df her Vs30SeriesViewModel içinde ayrıca hesaplanır.
+    
+    
     [ObservableProperty]
     private string _dfInput = "0.82";
 
@@ -81,22 +81,21 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<Vs30LayerViewModel> Vs30Layers { get; } = new();
     public ObservableCollection<Vs30SeriesViewModel> Vs30Series { get; } = new();
 
-    // ================= SONDAJ KUYULARI DİNAMİK ÖZELLİKLERİ =================
+    
     [ObservableProperty]
     private string _drillingWellCountInput = "3";
 
     public ObservableCollection<DrillingWellViewModel> DrillingWells { get; } = new();
 
-    // ================= MİKROTREMÖR ÖLÇÜMÜ DİNAMİK ÖZELLİKLERİ =================
+    
     [ObservableProperty]
     private string _microtremorCountInput = "1";
 
-    /// <summary>Kaç mikrotremör ölçümü tutulduğunu gösteren değişken (MICROTREMOR_COUNT)</summary>
-    public int MicrotremorCount => MicrotremorMeasurements.Count;
+        public int MicrotremorCount => MicrotremorMeasurements.Count;
 
     public ObservableCollection<MicrotremorMeasurementViewModel> MicrotremorMeasurements { get; } = new();
 
-    // ================= FORMASYON DROPDOWN =================
+    
     public IReadOnlyList<WordRegulator.Domain.Entities.FormationDefinition> FormationList { get; }
         = WordRegulator.Application.Services.FormationRepository.All;
 
@@ -107,12 +106,12 @@ public partial class MainViewModel : ObservableObject
     {
         if (value == null) return;
 
-        // FORMATİONTYPE → formasyon adı
+        
         var typeVar = Variables.FirstOrDefault(v => string.Equals(v.Key, "FORMAŞİONTYPE", StringComparison.OrdinalIgnoreCase)
                                                  || string.Equals(v.Key, "FORMATİONTYPE", StringComparison.OrdinalIgnoreCase));
         if (typeVar != null) { typeVar.Value = value.Name; _userOverriddenKeys.Add(typeVar.Key); }
 
-        // FORMİONTEXT → formasyon açıklaması
+        
         var textVar = Variables.FirstOrDefault(v => string.Equals(v.Key, "FORMAŞİONTEXT", StringComparison.OrdinalIgnoreCase)
                                                  || string.Equals(v.Key, "FORMATİONTEXT", StringComparison.OrdinalIgnoreCase));
         if (textVar != null) { textVar.Value = value.Description; _userOverriddenKeys.Add(textVar.Key); }
@@ -122,12 +121,28 @@ public partial class MainViewModel : ObservableObject
     public ICollectionView FilteredVariablesView { get; }
 
     private readonly IExcelDocumentProcessor? _excelProcessor;
+    private readonly ITemplateStorageService? _templateStorageService;
 
-    public MainViewModel(IVariableService variableService, IWordDocumentProcessor documentProcessor, IExcelDocumentProcessor? excelProcessor = null)
+    public MainViewModel(
+        IVariableService variableService, 
+        IWordDocumentProcessor documentProcessor, 
+        IExcelDocumentProcessor? excelProcessor = null,
+        ITemplateStorageService? templateStorageService = null)
     {
         _variableService = variableService;
         _documentProcessor = documentProcessor;
         _excelProcessor = excelProcessor;
+        _templateStorageService = templateStorageService;
+
+        if (_templateStorageService != null)
+        {
+            _templateDirectoryPath = _templateStorageService.TemplatesDirectoryPath;
+        }
+        else
+        {
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            _templateDirectoryPath = Path.Combine(appData, "WordRegulator", "Templates");
+        }
 
         _outputDirectoryPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "WordRegulatorOutput");
 
@@ -194,10 +209,7 @@ public partial class MainViewModel : ObservableObject
         RecalculateAllSeries();
     }
 
-    /// <summary>
-    /// Eski tek-Df modeli fallback — sadece serim modelini tetikler.
-    /// </summary>
-    private void RecalculateVs30()
+        private void RecalculateVs30()
     {
         RecalculateAllSeries();
     }
@@ -240,11 +252,7 @@ public partial class MainViewModel : ObservableObject
         RecalculateAllSeries();
     }
 
-    /// <summary>
-    /// FROMTHEBASETOPLEVEL / BaseTopLevelInput değerini sayısal olarak okur.
-    /// Birden fazla formatı destekler: "-3,24(35,57)" → 35.57 veya "35,57" → 35.57
-    /// </summary>
-    private double GetBaseTopLevel(out string rawValue)
+        private double GetBaseTopLevel(out string rawValue)
     {
         rawValue = BaseTopLevelInput;
         if (string.IsNullOrWhiteSpace(rawValue))
@@ -253,7 +261,7 @@ public partial class MainViewModel : ObservableObject
             if (btVar != null) rawValue = btVar.Value;
         }
 
-        // "-3,24(35,57)" → parantez içini al → 35,57
+        
         string val = rawValue ?? string.Empty;
         int parenOpen = val.IndexOf('(');
         int parenClose = val.IndexOf(')');
@@ -293,10 +301,10 @@ public partial class MainViewModel : ObservableObject
             string vs30Str = _variableService.CalculateVs30(seriesDomainLayers, df);
             series.UpdateResults(df, vs30Str);
 
-            // Görev 5: Tabaka exclusion durumunu güncelle
+            
             series.UpdateLayerExclusion(df);
 
-            // Sadece sayısal kısmı al ("1101 m/s" → "1101")
+            
             var digits = new string(vs30Str.Where(c => char.IsDigit(c) || c == '.' || c == ',').ToArray()).Replace(',', '.');
             if (double.TryParse(digits, NumberStyles.Any, CultureInfo.InvariantCulture, out var vs30Val) && vs30Val > 0)
             {
@@ -304,7 +312,7 @@ public partial class MainViewModel : ObservableObject
             }
         }
 
-        // Tüm serimlerin VS30 değerleri birleştirilmiş: "1101 / 1062"
+        
         AllVs30Values = vs30NumbersList.Count > 0
             ? string.Join(" / ", vs30NumbersList)
             : "—";
@@ -339,7 +347,7 @@ public partial class MainViewModel : ObservableObject
 
         OnPropertyChanged(nameof(MicrotremorCount));
 
-        // MICROTREMOR_COUNT değişkenini güncelle
+        
         var countVar = Variables.FirstOrDefault(x =>
             string.Equals(x.Key, "MICROTREMOR_COUNT", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(x.Key, "MİKROTREMOR_SAYISI", StringComparison.OrdinalIgnoreCase));
@@ -401,7 +409,8 @@ public partial class MainViewModel : ObservableObject
             Measurements = w.Measurements.Select(m => new GroundwaterMeasurementItem
             {
                 MeasurementDate = m.MeasurementDate,
-                WaterDepth = m.WaterDepth
+                WaterDepth = m.WaterDepth,
+                Day = m.Day
             }).ToList(),
             HasPressuremeterTest = w.HasPressuremeterTest,
             PressuremeterRows = w.PressuremeterRows.Select(r => new WordRegulator.Domain.Entities.PressuremeterRowItem
@@ -430,8 +439,8 @@ public partial class MainViewModel : ObservableObject
         var firstWell = DrillingWells.FirstOrDefault();
         if (firstWell != null)
         {
-            // NOT: Enlem (LATİTUDE) ve Boylam (LONGİTUDE) değişkenleri sondaj kuyusundan
-            // otomatik kopyalanmaz; kullanıcı Değişkenler panelinden bağımsız olarak girer.
+            
+            
             if (!string.IsNullOrWhiteSpace(firstWell.StartDate))
             {
                 var dateVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "DRİLLİNGDATE", StringComparison.OrdinalIgnoreCase));
@@ -477,15 +486,15 @@ public partial class MainViewModel : ObservableObject
             if (allFiles.Count > 0)
             {
                 var parts = new List<string>();
-                if (docxFiles.Count > 0) parts.Add($"{docxFiles.Count} Word (.docx)");
-                if (xlsxFiles.Count > 0) parts.Add($"{xlsxFiles.Count} Excel (.xlsx)");
+                if (docxFiles.Count > 0) parts.Add($"{docxFiles.Count} Word");
+                if (xlsxFiles.Count > 0) parts.Add($"{xlsxFiles.Count} Excel");
                 DetectedTemplateNames = $"Bulunan Şablonlar ({allFiles.Count}): " + string.Join(", ", allFiles);
-                SetStatus($"Şablon klasöründe {string.Join(" ve ", parts)} dosyası tespit edildi.", "Info");
+                SetStatus($"%AppData% şablon klasöründe {string.Join(" ve ", parts)} dosyası hazır.", "Info");
             }
             else
             {
-                DetectedTemplateNames = "Seçilen klasörde *.docx veya *.xlsx uzantılı dosya bulunamadı.";
-                SetStatus("Seçilen klasörde Word veya Excel şablonu yok. Lütfen geçerli dosyaları olan bir klasör seçin.", "Error");
+                DetectedTemplateNames = "⚠️ Şablon bulunamadı! 'Klasörü Aç' butonuna basarak şablon dosyalarınızı ekleyin.";
+                SetStatus("Şablon bulunamadı! 'Klasörü Aç' butonuna basarak şablon dosyalarınızı bu klasöre yerleştirin.", "Warning");
             }
         }
         catch (Exception ex)
@@ -532,7 +541,7 @@ public partial class MainViewModel : ObservableObject
             }
         }
 
-        // Kullanıcı SHEETİSLANDPARCEL alanını elle yazarsa geçersiz kılma olarak işaretle
+        
         if (string.Equals(item.Key, "SHEETİSLANDPARCEL", StringComparison.OrdinalIgnoreCase))
         {
             _userOverriddenKeys.Add(item.Key);
@@ -585,7 +594,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (obj is not VariableItemViewModel item) return false;
 
-        // Özel UI kontrolleri eklenen değişkenleri gizle (Formasyon Dropdown için)
+        
         if (string.Equals(item.Key, "FORMATİONTYPE", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(item.Key, "FORMAŞİONTYPE", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(item.Key, "FORMATİONTEXT", StringComparison.OrdinalIgnoreCase) ||
@@ -642,17 +651,33 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(TemplateDirectoryPath) || !Directory.Exists(TemplateDirectoryPath))
+            if (_templateStorageService != null)
             {
-                SetStatus("Açılacak bir şablon klasörü seçilmedi! Lütfen önce klasör seçin.", "Error");
-                return;
+                _templateStorageService.OpenTemplatesFolder();
             }
-            Process.Start("explorer.exe", TemplateDirectoryPath);
+            else if (!string.IsNullOrWhiteSpace(TemplateDirectoryPath) && Directory.Exists(TemplateDirectoryPath))
+            {
+                Process.Start(new ProcessStartInfo("explorer.exe", $"\"{TemplateDirectoryPath}\"") { UseShellExecute = true });
+            }
+            else
+            {
+                SetStatus("Şablon klasörü bulunamadı!", "Error");
+            }
         }
         catch (Exception ex)
         {
             SetStatus($"Klasör açılamadı: {ex.Message}", "Error");
         }
+    }
+
+    [RelayCommand]
+    private void RefreshTemplates()
+    {
+        ScanTemplateDirectory();
+        if (DetectedTemplateCount > 0)
+            SetStatus($"Şablonlar güncellendi. {DetectedTemplateCount} adet şablon hazır.", "Success");
+        else
+            SetStatus("Şablon bulunamadı. Lütfen 'Klasörü Aç' ile dosyalarınızı yerleştirin.", "Warning");
     }
 
     [RelayCommand]
@@ -680,7 +705,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(TemplateDirectoryPath) || !Directory.Exists(TemplateDirectoryPath))
         {
-            SetStatus("HATA: Geçerli bir Şablon Klasörü seçilmedi! Lütfen yukarıdaki 'Klasör Seç' butonundan klasör belirleyin.", "Error");
+            SetStatus("HATA: Şablon klasörü bulunamadı! Lütfen 'Klasörü Aç' butonuna basarak şablonlarınızı (%AppData%\\WordRegulator\\Templates) içine ekleyin.", "Error");
             return;
         }
 
@@ -688,7 +713,7 @@ public partial class MainViewModel : ObservableObject
 
         if (DetectedTemplateCount == 0)
         {
-            SetStatus("HATA: Seçilen klasörde işlenecek .docx uzantılı Word dosyası bulunamadı!", "Error");
+            SetStatus("HATA: Şablon klasöründe (*.docx veya *.xlsx) dosyası bulunamadı! Lütfen 'Klasörü Aç' butonu ile şablon dosyalarınızı yerleştirin.", "Error");
             return;
         }
 
@@ -728,7 +753,8 @@ public partial class MainViewModel : ObservableObject
                 Measurements = w.Measurements.Select(m => new GroundwaterMeasurementItem
                 {
                     MeasurementDate = m.MeasurementDate,
-                    WaterDepth = m.WaterDepth
+                    WaterDepth = m.WaterDepth,
+                    Day = m.Day
                 }).ToList(),
                 HasPressuremeterTest = w.HasPressuremeterTest,
                 PressuremeterRows = w.PressuremeterRows.Select(r => new WordRegulator.Domain.Entities.PressuremeterRowItem
@@ -740,7 +766,7 @@ public partial class MainViewModel : ObservableObject
                 }).ToList()
             }).ToList();
 
-            // baseTopLevel'ı SKBASEDEEP için wellReplacements'a da ilet
+            
             double baseTopLevelForWells = GetBaseTopLevel(out _);
             var wellReplacements = _variableService.GenerateDrillingWellReplacements(domainWells, baseTopLevelForWells);
             foreach (var kvp in wellReplacements)
@@ -748,7 +774,7 @@ public partial class MainViewModel : ObservableObject
                 replacements[kvp.Key] = kvp.Value;
             }
 
-            // VS30 hesaplama adımı değişkenleri — tüm serimler için
+            
             double baseTopLevelForReplace = GetBaseTopLevel(out _);
 
             if (Vs30Series.Count > 0)
@@ -774,7 +800,7 @@ public partial class MainViewModel : ObservableObject
 
             var domainVs30Series = new List<Vs30SeriesItem>();
 
-            // Serim bazlı VS30 değişkenleri: {{VS30_S1_FORMULA}}, {{VS30_S1_H1}} vb.
+            
             for (int si = 0; si < Vs30Series.Count; si++)
             {
                 var series = Vs30Series[si];
@@ -793,19 +819,19 @@ public partial class MainViewModel : ObservableObject
                 var seriesReplacements = _variableService.GenerateVs30Replacements(seriesDomainLayers, seriesDf);
                 foreach (var kvp in seriesReplacements)
                 {
-                    // VS30_DF → VS30_S1_DF, VS30_H1 → VS30_S1_H1 vb.
+                    
                     string serimKey = kvp.Key.Replace("VS30_", $"VS30_S{sNum}_");
                     replacements[serimKey] = kvp.Value;
                 }
 
-                // Serime özgü ek değişkenler
+                
                 replacements[$"VS30_S{sNum}_KOTSTART"] = series.KotStartInput;
                 replacements[$"VS30_S{sNum}_KOTEND"] = series.KotEndInput;
                 replacements[$"VS30_S{sNum}_KOTAVG"] = series.KotAverage.ToString("F2", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
                 replacements[$"VS30_S{sNum}_DF"] = seriesDf.ToString("F2", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
                 replacements[$"VS30_S{sNum}_RESULT"] = series.Vs30Result;
 
-                // A Katsayısı: A = 68 * (Vs30)^(-0.6) -> {{A1}}, {{A2}} ...
+                
                 double aVal = series.AValue;
                 if (aVal <= 0)
                 {
@@ -820,46 +846,46 @@ public partial class MainViewModel : ObservableObject
                 replacements[$"VS30_S{sNum}_A"] = aStr;
                 replacements[$"A_{sNum}"] = aStr;
 
-                // T0 Değeri: S1T0, S2T0...
+                
                 replacements[$"S{sNum}T0"] = series.T0Input;
                 replacements[$"VS30_S{sNum}_T0"] = series.T0Input;
                 replacements[$"T0_{sNum}"] = series.T0Input;
 
-                // Serim Başlık İsimleri
+                
                 replacements[$"SS_{sNum}_NAME"] = $"SS-{sNum}";
                 replacements[$"SERIM_{sNum}_NAME"] = $"{sNum}. Serim";
                 replacements[$"SERIM_{sNum}_NO"] = sNum.ToString();
 
-                // ===== Sismik Koordinatlar (dinamik) =====
+                
                 replacements[$"SS_{sNum}_XSTART"]  = series.XStart;
                 replacements[$"SS_{sNum}_YSTART"]  = series.YStart;
                 replacements[$"SS_{sNum}_XFINISH"] = series.XFinish;
                 replacements[$"SS_{sNum}_YFINISH"] = series.YFinish;
-                // Geriye dönük uyumluluk için eski format (SS-1XSTART)
+                
                 replacements[$"SEİSMİCCOORDİNATESS-{sNum}XSTART"]  = series.XStart;
                 replacements[$"SEİSMİCCOORDİNATESS-{sNum}YSTART"]  = series.YStart;
                 replacements[$"SEİSMİCCOORDİNATESS-{sNum}XFİNİSH"] = series.XFinish;
                 replacements[$"SEİSMİCCOORDİNATESS-{sNum}YFİNİSH"] = series.YFinish;
 
-                // ===== Poisson Oranı (dinamik) =====
+                
                 replacements[$"SS_{sNum}_POISSON1"] = series.PoissonLayer1;
                 replacements[$"SS_{sNum}_POISSON2"] = series.PoissonLayer2;
                 replacements[$"POİSSONRATİO1S{sNum}"] = series.PoissonLayer1;
                 replacements[$"POİSSONRATİO2S{sNum}"] = series.PoissonLayer2;
 
-                // ===== Kayma Modülü (dinamik) =====
+                
                 replacements[$"SS_{sNum}_SHEAR1"] = series.ShearModulusLayer1;
                 replacements[$"SS_{sNum}_SHEAR2"] = series.ShearModulusLayer2;
                 replacements[$"SHEARMODULUS1S{sNum}"] = series.ShearModulusLayer1;
                 replacements[$"SHEARMODULUS2S{sNum}"] = series.ShearModulusLayer2;
 
-                // ===== Bulk Modülü (dinamik) =====
+                
                 replacements[$"SS_{sNum}_BULK1"] = series.BulkModulusLayer1;
                 replacements[$"SS_{sNum}_BULK2"] = series.BulkModulusLayer2;
                 replacements[$"BULKMODULE1S{sNum}"] = series.BulkModulusLayer1;
                 replacements[$"BULKMODULE2S{sNum}"] = series.BulkModulusLayer2;
 
-                // ===== Elastisite Modülü (dinamik) =====
+                
                 replacements[$"SS_{sNum}_ELASTICITY1"] = series.ElasticityModulusLayer1;
                 replacements[$"SS_{sNum}_ELASTICITY2"] = series.ElasticityModulusLayer2;
                 replacements[$"ELASTİCİTYMODULUS1S{sNum}"] = series.ElasticityModulusLayer1;
@@ -885,7 +911,7 @@ public partial class MainViewModel : ObservableObject
                     Formula = formula,
                     FormulaFull = formulaFull,
                     Layers = seriesDomainLayers,
-                    // Koordinatlar & Modüller
+                    
                     XStart  = series.XStart,
                     YStart  = series.YStart,
                     XFinish = series.XFinish,
@@ -901,15 +927,15 @@ public partial class MainViewModel : ObservableObject
                 });
             }
 
-            // Geriye dönük uyumluluk için genel {{A}} ve {{T0}} değişkeni (1. serimin değerleri)
+            
             if (Vs30Series.Count > 0)
             {
                 replacements["A"] = replacements.TryGetValue("A1", out var a1) ? a1 : "1,00";
                 replacements["T0"] = Vs30Series[0].T0Input;
             }
 
-            // ===== T0_ALL_SERIES — tüm serimlerin T0 özeti =====
-            // Çıktı örneği: "1. Serim T0 = 0,21 sn\n2. Serim T0 = 0,22 sn"
+            
+            
             var t0Parts = new List<string>();
             var t0DashParts = new List<string>();
             foreach (var s in Vs30Series)
@@ -919,19 +945,19 @@ public partial class MainViewModel : ObservableObject
                 t0DashParts.Add(t0Val);
             }
             string t0AllText = string.Join("\n", t0Parts);
-            replacements["T0_ALL_SERIES"] = t0AllText;    // {{T0_ALL_SERIES}}
-            replacements["ALL_T0"] = t0AllText;            // {{ALL_T0}}
-            replacements["T0_OZET"] = t0AllText;           // {{T0_OZET}}
+            replacements["T0_ALL_SERIES"] = t0AllText;    
+            replacements["ALL_T0"] = t0AllText;            
+            replacements["T0_OZET"] = t0AllText;           
 
-            // ===== T0_DASH — tüm serimlerin T0 değerleri "-" ile birleştirilmiş =====
-            // Çıktı örneği: "0,21 - 0,22 - 0,18"
+            
+            
             string t0DashText = string.Join(" - ", t0DashParts);
-            replacements["T0_DASH"] = t0DashText;          // {{T0_DASH}}
-            replacements["ALL_T0_DASH"] = t0DashText;      // {{ALL_T0_DASH}}
-            replacements["T0_TUM"] = t0DashText;           // {{T0_TUM}}
-            replacements["T0_LISTE"] = t0DashText;         // {{T0_LISTE}}
+            replacements["T0_DASH"] = t0DashText;          
+            replacements["ALL_T0_DASH"] = t0DashText;      
+            replacements["T0_TUM"] = t0DashText;           
+            replacements["T0_LISTE"] = t0DashText;         
 
-            // TÜK'e göre tüm serimlerin birleşik Vs30 sonuçları: örn: "1101 / 1062 m/sn" veya "1101 / 1062"
+            
             var vs30NumbersList = new List<string>();
             var vs30NumericValues = new List<double>();
             foreach (var s in Vs30Series)
@@ -954,14 +980,14 @@ public partial class MainViewModel : ObservableObject
             replacements["TUK_VS30"] = combinedVs30Msn;
             replacements["TÜK_VS30"] = combinedVs30Msn;
 
-            // Sadece sayılar (birim eklemeden) — raporda {{VS30_ALL_VALUES}} şeklinde kullanılır
+            
             replacements["VS30_ALL_VALUES"] = combinedVs30Nums;
             replacements["VS30_ALL_NUM"] = combinedVs30Nums;
             replacements["ALL_VS30_NUM"] = combinedVs30Nums;
             replacements["TUK_VS30_NUM"] = combinedVs30Nums;
             replacements["TÜK_VS30_NUM"] = combinedVs30Nums;
 
-            // Görev 2: MAXMINVS30 — en yüksek ve en düşük VS30 değeri
+            
             string maxMinVs30Str;
             if (vs30NumericValues.Count >= 2)
             {
@@ -983,33 +1009,33 @@ public partial class MainViewModel : ObservableObject
             replacements["MAX_MIN_VS30"] = maxMinVs30Str;
             replacements["VS30_MAX_MIN"] = maxMinVs30Str;
 
-            // ===== Yüzeyde ölçülen VS30 değerleri =====
+            
             var surfaceVs30Parts = new List<string>();
             foreach (var s in Vs30Series)
             {
                 int sn = s.SeriesNumber;
                 string surfVal = string.IsNullOrWhiteSpace(s.SurfaceVs30Input) ? "—" : s.SurfaceVs30Input.Trim();
-                // Birim ekle (m/sn yoksa ekle)
+                
                 string surfWithUnit = surfVal == "—" ? "—"
                     : (surfVal.EndsWith("m/sn", StringComparison.OrdinalIgnoreCase) || surfVal.EndsWith("m/s", StringComparison.OrdinalIgnoreCase)
                        ? surfVal : $"{surfVal} m/sn");
 
-                replacements[$"VS30_S{sn}_YUZEY"] = surfWithUnit;   // {{VS30_S1_YUZEY}}
-                replacements[$"SURFACE_VS30_{sn}"] = surfWithUnit;   // {{SURFACE_VS30_1}}
-                replacements[$"VS30_YUZEY_{sn}"] = surfWithUnit;     // {{VS30_YUZEY_1}}
+                replacements[$"VS30_S{sn}_YUZEY"] = surfWithUnit;   
+                replacements[$"SURFACE_VS30_{sn}"] = surfWithUnit;   
+                replacements[$"VS30_YUZEY_{sn}"] = surfWithUnit;     
 
                 if (surfVal != "—") surfaceVs30Parts.Add(surfVal);
             }
 
-            // Birleşik yüzeyde değeri: "944,20 / 931,70 m/sn" — {{VS30_ALL_SURFACE}}
+            
             string combinedSurface = surfaceVs30Parts.Count > 0
                 ? string.Join(" / ", surfaceVs30Parts) + " m/sn"
                 : "—";
-            replacements["VS30_ALL_SURFACE"] = combinedSurface;   // {{VS30_ALL_SURFACE}}
-            replacements["ALL_SURFACE_VS30"] = combinedSurface;   // {{ALL_SURFACE_VS30}}
-            replacements["VS30_YUZEY_ALL"] = combinedSurface;     // {{VS30_YUZEY_ALL}}
+            replacements["VS30_ALL_SURFACE"] = combinedSurface;   
+            replacements["ALL_SURFACE_VS30"] = combinedSurface;   
+            replacements["VS30_YUZEY_ALL"] = combinedSurface;     
 
-            // Türkçe / İngilizce ve Harf Varyasyonları İçin Takma Adlar (Aliases)
+            
             void AddAlias(string aliasKey, string originalKey)
             {
                 if (replacements.TryGetValue(originalKey, out var val) && !replacements.ContainsKey(aliasKey))
@@ -1018,56 +1044,56 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            // DRILLER / DRILLERPERSON / DRİLLERPERSON
+            
             AddAlias("DRILLERPERSON", "DRILLER");
             AddAlias("DRİLLERPERSON", "DRILLER");
             AddAlias("DRILLER_PERSON", "DRILLER");
             AddAlias("SONDOR", "DRILLER");
             AddAlias("SONDÖR", "DRILLER");
 
-            // TOTALDRILLING / TOTALDRİLLİNG / TOTAL_DRILLING / TOPLAMSONDAJ
+            
             AddAlias("TOTALDRILLING", "TOTALDRİLLİNG");
             AddAlias("TOTAL_DRILLING", "TOTALDRİLLİNG");
             AddAlias("TOPLAMSONDAJ", "TOTALDRİLLİNG");
             AddAlias("TOPLAM_SONDAJ", "TOTALDRİLLİNG");
 
-            // GROUNDWATER / YERALTISUYU / YERALTI_SUYU
+            
             AddAlias("YERALTISUYU", "GROUNDWATER");
             AddAlias("YERALTI_SUYU", "GROUNDWATER");
             AddAlias("GROUND_WATER", "GROUNDWATER");
             AddAlias("GROUNDWATERLEVEL", "GROUNDWATER");
             AddAlias("YERALTISUYUSEVIYESI", "GROUNDWATER");
 
-            // AREAOFSTUDY / AREA_OF_STUDY / INCELEMEALANI
+            
             AddAlias("AREA_OF_STUDY", "AREAOFSTUDY");
             AddAlias("INCELEMEALANI", "AREAOFSTUDY");
             AddAlias("İNCELEMEALANI", "AREAOFSTUDY");
             AddAlias("INCELEME_ALANI", "AREAOFSTUDY");
 
-            // AREAOFSTUDYFORMATIONTYPE aliases (kaldırıldı, raporda kullanılmıyor)
+            
 
-            // LATITUDE / LONGITUDE
+            
             AddAlias("LATITUDE", "LATİTUDE");
             AddAlias("LONGITUDE", "LONGİTUDE");
             AddAlias("ENLEM", "LATİTUDE");
             AddAlias("BOYLAM", "LONGİTUDE");
 
-            // PROVINCE / DISTRICT / NEIGHBOURHOOD
+            
             AddAlias("PROVINCE", "PROVİNCE");
             AddAlias("DISTRICT", "DİSTRİCT");
             AddAlias("NEIGHBOURHOOD", "NEİGHBOURHOOD");
 
-            // SHEETISLANDPARCEL
+            
             AddAlias("SHEETISLANDPARCEL", "SHEETİSLANDPARCEL");
             AddAlias("PAFTAADAPARSEL", "SHEETİSLANDPARCEL");
 
-            // ===== MİKROTREMÖR ÖLÇÜM DEĞİŞKENLERİ =====
+            
             int mtCount = MicrotremorMeasurements.Count;
-            replacements["MICROTREMOR_COUNT"]  = mtCount.ToString();  // {{MICROTREMOR_COUNT}}
-            replacements["MİKROTREMOR_SAYISI"] = mtCount.ToString();  // {{MİKROTREMOR_SAYISI}}
-            replacements["MT_COUNT"]           = mtCount.ToString();  // {{MT_COUNT}}
+            replacements["MICROTREMOR_COUNT"]  = mtCount.ToString();  
+            replacements["MİKROTREMOR_SAYISI"] = mtCount.ToString();  
+            replacements["MT_COUNT"]           = mtCount.ToString();  
 
-            // Her ölçüm için bireysel değişkenler: {{MT_1_T0}}, {{MT_2_T0}} ...
+            
             var microtremorDomainItems = new List<MicrotremorMeasurementItem>();
             foreach (var mt in MicrotremorMeasurements)
             {
@@ -1080,8 +1106,10 @@ public partial class MainViewModel : ObservableObject
                 string xmt   = mt.HorizontalCoordinate;
                 string ymt   = mt.VerticalCoordinate;
 
-                // Bireysel değişkenler
-                replacements[$"MT_{n}_NO"]    = n.ToString();
+                
+                replacements[$"MT_{n}_NO"]    = $"MT-{n}";
+                replacements[$"MT_{n}_ID"]    = $"MT-{n}";
+                replacements[$"MT_{n}_NUM"]   = n.ToString();
                 replacements[$"MT_{n}_T0"]    = t0mt;
                 replacements[$"MT_{n}_TA"]    = tamt;
                 replacements[$"MT_{n}_TB"]    = tbmt;
@@ -1109,13 +1137,13 @@ public partial class MainViewModel : ObservableObject
 
             var batchResult = await _documentProcessor.ProcessTemplateDirectoryAsync(TemplateDirectoryPath, targetSubfolder, replacements, domainWells, domainVs30Series);
 
-            // ===== EXCEL İŞLEME — Her sondaj kuyusu için ayrı .xlsx =====
+            
             if (_excelProcessor != null)
             {
                 var excelBatchResult = await _excelProcessor.ProcessExcelTemplatesForWellsAsync(
                     TemplateDirectoryPath, targetSubfolder, replacements, domainWells);
 
-                // Excel sonuçlarını Word sonucuna ekle
+                
                 batchResult.ProcessedFileCount += excelBatchResult.ProcessedFileCount;
                 batchResult.TotalReplacementsCount += excelBatchResult.TotalReplacementsCount;
                 batchResult.OutputFiles.AddRange(excelBatchResult.OutputFiles);
@@ -1162,10 +1190,7 @@ public partial class MainViewModel : ObservableObject
         StatusMessageType = type;
     }
 
-    /// <summary>
-    /// Kullanıcıdan gelen virgüllü/noktalı sayı string'ini double'a parse eder.
-    /// </summary>
-    private static double ParseDouble(string value)
+        private static double ParseDouble(string value)
     {
         if (string.IsNullOrWhiteSpace(value)) return 0.0;
         return double.TryParse(value.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0.0;

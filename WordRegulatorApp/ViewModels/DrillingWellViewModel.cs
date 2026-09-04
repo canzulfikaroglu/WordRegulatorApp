@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -39,7 +39,7 @@ public partial class DrillingWellViewModel : ObservableObject
     [ObservableProperty]
     private int _selectedMeasurementCount = 1;
 
-    // ===== Presiyometre Deneyi =====
+    
     [ObservableProperty]
     private bool _hasPressuremeterTest;
 
@@ -103,6 +103,11 @@ public partial class DrillingWellViewModel : ObservableObject
 
         for (int i = 0; i < Measurements.Count; i++)
         {
+            if (string.IsNullOrWhiteSpace(Measurements[i].Day))
+            {
+                Measurements[i].Day = GetDefaultDayString(i + 1);
+            }
+
             if (i == 0)
             {
                 Measurements[i].MeasurementDate = current.ToString("dd.MM.yyyy");
@@ -133,6 +138,7 @@ public partial class DrillingWellViewModel : ObservableObject
         {
             int idx = Measurements.Count + 1;
             string dateStr;
+            string dayStr = GetDefaultDayString(idx);
             if (idx == 1)
             {
                 dateStr = baseDt.AddDays(1).ToString("dd.MM.yyyy");
@@ -149,7 +155,7 @@ public partial class DrillingWellViewModel : ObservableObject
             }
 
             string depth = IsCollapsed ? "Kuyu çökmüş" : "2,70";
-            var m = new GroundwaterMeasurementViewModel(idx, dateStr, depth, !IsCollapsed);
+            var m = new GroundwaterMeasurementViewModel(idx, dateStr, depth, dayStr, !IsCollapsed);
             m.MeasurementChanged += OnMeasurementItemChanged;
             Measurements.Add(m);
         }
@@ -184,7 +190,7 @@ public partial class DrillingWellViewModel : ObservableObject
         WellChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    // ===== Presiyometre Satır Komutları =====
+    
 
     [RelayCommand]
     private void AddPressuremeterRow()
@@ -223,4 +229,13 @@ public partial class DrillingWellViewModel : ObservableObject
     partial void OnGroundKotChanged(string value) => WellChanged?.Invoke(this, EventArgs.Empty);
     partial void OnBottomKotChanged(string value) => WellChanged?.Invoke(this, EventArgs.Empty);
     partial void OnFinishDateChanged(string value) => WellChanged?.Invoke(this, EventArgs.Empty);
+
+    public static string GetDefaultDayString(int idx)
+    {
+        if (idx == 1) return "1. gün";
+        if (idx == 2) return "3. gün";
+        if (idx == 3) return "7. gün";
+        int days = 7 + (idx - 3) * 4;
+        return $"{days}. gün";
+    }
 }

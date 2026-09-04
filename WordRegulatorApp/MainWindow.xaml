@@ -18,19 +18,19 @@
 
     <Grid Margin="20">
         <Grid.RowDefinitions>
-            <!-- 0: Header Section -->
+            
             <RowDefinition Height="Auto"/>
-            <!-- 1: Folder Toolbar & Detected Templates -->
+            
             <RowDefinition Height="Auto"/>
-            <!-- 2: Search Bar & Actions -->
+            
             <RowDefinition Height="Auto"/>
-            <!-- 3: Main Variables & Interactive Calculation Panels (Scrollable) -->
+            
             <RowDefinition Height="*"/>
-            <!-- 4: Bottom Action & Status Footer -->
+            
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- 0. HEADER SECTION -->
+        
         <Border Grid.Row="0" Background="{StaticResource PanelDarkBrush}" CornerRadius="12" Padding="20,16" Margin="0,0,0,14" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -50,7 +50,7 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- Stats Badges -->
+                
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Border Background="#20202B" CornerRadius="8" Padding="12,6" Margin="0,0,8,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
                         <StackPanel Orientation="Horizontal">
@@ -74,7 +74,7 @@
             </Grid>
         </Border>
 
-        <!-- 1. FOLDER TOOLBAR & DETECTED TEMPLATES -->
+        
         <Border Grid.Row="1" Background="{StaticResource PanelDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,14" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
             <Grid>
                 <Grid.RowDefinitions>
@@ -85,30 +85,15 @@
                 <Grid Grid.Row="0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="2*"/>
-                        <ColumnDefinition Width="12"/>
-                        <ColumnDefinition Width="2*"/>
-                        <ColumnDefinition Width="12"/>
-                        <ColumnDefinition Width="1.5*"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Template Directory Selector -->
+                    
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="📁 Word Şablon Klasörü" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" Text="{Binding TemplateDirectoryPath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}" IsReadOnly="True" Margin="0,0,6,0"/>
-                            <Button Grid.Column="1" Content="Klasör Seç" Command="{Binding BrowseTemplateDirectoryCommand}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,6,0"/>
-                            <Button Grid.Column="2" Content="Aç" Command="{Binding OpenTemplateFolderCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
-                        </Grid>
-                    </StackPanel>
-
-                    <!-- Output Directory Selector -->
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Text="📂 Ana Çıktı Klasörü" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                        <TextBlock Text="📂 Çıktı Klasörü" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -119,14 +104,23 @@
                         </Grid>
                     </StackPanel>
 
-                    <!-- Output Subfolder Title Selector -->
-                    <StackPanel Grid.Column="4">
+                    
+                    <StackPanel Grid.Column="2">
                         <TextBlock Text="🏷️ Proje / Klasör Adı" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
-                        <TextBox Text="{Binding OutputFolderTitle, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}" ToolTip="Çıktıların toplanacağı özel alt klasör adı (örn: denemeciktisi)"/>
+                        <TextBox Text="{Binding OutputFolderTitle, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}" ToolTip="Çıktıların toplanacağı alt klasör adı (örn: Proje_Çıktısı)"/>
+                    </StackPanel>
+
+                    
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Text="📁 Sabit Şablonlar" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Klasörü Aç" Command="{Binding OpenTemplateFolderCommand}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,6,0" ToolTip="%AppData% içindeki şablon klasörünü açar"/>
+                            <Button Content="Yenile" Command="{Binding RefreshTemplatesCommand}" Style="{StaticResource SecondaryButtonStyle}" ToolTip="Şablon klasörünü yeniden tarar"/>
+                        </StackPanel>
                     </StackPanel>
                 </Grid>
 
-                <!-- Detected Template Files Info Banner -->
+                
                 <Border Grid.Row="1" Background="#13131A" CornerRadius="8" Padding="12,8" Margin="0,12,0,0" BorderBrush="{StaticResource AccentCyanBrush}" BorderThickness="1">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -134,37 +128,37 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="🔍 " FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Text="⚡ " FontSize="14" VerticalAlignment="Center"/>
                             <TextBlock Text="{Binding DetectedTemplateNames}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AccentCyanBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
 
                         <Border Grid.Column="1" Background="#1E293B" CornerRadius="6" Padding="8,4">
-                            <TextBlock Text="Otomatik Tarama" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="SemiBold"/>
+                            <TextBlock Text="Sabit %AppData% Sistemi" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="SemiBold"/>
                         </Border>
                     </Grid>
                 </Border>
             </Grid>
         </Border>
 
-        <!-- 2. SEARCH BAR & ACTIONS -->
+        
         <Grid Grid.Row="2" Margin="0,0,0,14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Search Field -->
+            
             <TextBox Grid.Column="0" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}" 
                      Margin="0,0,16,0" VerticalAlignment="Center"/>
 
-            <!-- Reset Button -->
+            
             <Button Grid.Column="1" Content="Varsayılana Sıfırla" Command="{Binding ResetAllCommand}" Style="{StaticResource SecondaryButtonStyle}" VerticalAlignment="Center"/>
         </Grid>
 
-        <!-- 3. MAIN VARIABLES & CALCULATORS SCROLLABLE CONTAINER -->
+        
         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,0,16">
             <StackPanel>
-                <!-- ================= ⚡ VS30 JEOFİZİK HESAPLAMA PANELİ ================= -->
+                
                 <Border Background="{StaticResource PanelDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,16" BorderBrush="{StaticResource AccentPurpleBrush}" BorderThickness="1">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -172,7 +166,7 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Panel Başlığı & Üst Kontroller -->
+                        
                         <Grid Grid.Row="0" Margin="0,0,0,14">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -190,26 +184,26 @@
                                 </StackPanel>
                             </StackPanel>
 
-                            <!-- Temel Üst Kotu Girişi -->
+                            
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
                                 <TextBlock Text="Temel Üst Kotu:" FontSize="12" Foreground="{StaticResource AccentPurpleBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                 <TextBox Text="{Binding BaseTopLevelInput, UpdateSourceTrigger=PropertyChanged}" Width="135" Style="{StaticResource DarkTextBoxStyle}" ToolTip="Temel Üst Kotu (örn: -3,24(35,57) veya 35,57). Alttaki {{FROMTHEBASETOPLEVEL}} ile senkronizedir."/>
                             </StackPanel>
 
-                            <!-- Serim Sayısı Elle Giriş -->
+                            
                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="Serim Sayısı (Elle Girin):" FontSize="12" Foreground="{StaticResource AccentPurpleBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                 <TextBox Text="{Binding Vs30SeriesCountInput, UpdateSourceTrigger=PropertyChanged}" Width="65" Style="{StaticResource DarkTextBoxStyle}"/>
                             </StackPanel>
                         </Grid>
 
-                        <!-- Serim Listesi (Her Serim Kendi Kot ve Tabaka Tablosunu İçerir) -->
+                        
                         <ItemsControl Grid.Row="1" ItemsSource="{Binding Vs30Series}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:Vs30SeriesViewModel}">
                                     <Border Margin="0,0,0,12" Background="#14141E" CornerRadius="10" Padding="14" BorderBrush="{StaticResource AccentPurpleBrush}" BorderThickness="1">
                                         <StackPanel>
-                                            <!-- Serim Üst Başlık & Kot Girdileri & Canlı Sonuçlar -->
+                                            
                                             <Grid Margin="0,0,0,12">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto"/>
@@ -219,14 +213,14 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 
-                                                <!-- Serim Başlığı -->
+                                                
                                                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <Border Background="{StaticResource AccentPurpleBrush}" CornerRadius="6" Padding="10,6" Margin="0,0,10,0">
                                                         <TextBlock Text="{Binding SeriesName}" FontWeight="Bold" FontSize="12" Foreground="#FFFFFF"/>
                                                     </Border>
                                                 </StackPanel>
 
-                                                <!-- Kot Başlangıç & Kot Bitiş -->
+                                                
                                                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
                                                         <TextBlock Text="Kot Başlangıç:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
@@ -246,7 +240,7 @@
                                                     </StackPanel>
                                                 </StackPanel>
 
-                                                <!-- Canlı Sonuç Badgeleri: Df, VS30 & A -->
+                                                
                                                 <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <Border Background="#1E293B" CornerRadius="6" Padding="10,5" Margin="0,0,8,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
                                                         <StackPanel Orientation="Horizontal">
@@ -269,8 +263,8 @@
                                                 </StackPanel>
                                             </Grid>
 
-                                            <!-- Tabaka Tablosu (Bu Serim İçin) -->
-                                            <!-- Sismik Koordinatlar & Modüller -->
+                                            
+                                            
                                             <Border Margin="0,8,0,0" Background="#0F0F1A" CornerRadius="8" Padding="12,8" BorderBrush="#334155" BorderThickness="1">
                                                 <StackPanel>
                                                     <TextBlock Text="Sismik Koordinatlar" FontSize="11" FontWeight="Bold" Foreground="#14B8A6" Margin="0,0,0,6"/>
@@ -335,7 +329,7 @@
                                                 </StackPanel>
                                             </Border>
 
-                                            <!-- Tabaka Tablosu (Bu Serim İçin) -->
+                                            
                                             <ItemsControl ItemsSource="{Binding Layers}">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
@@ -366,7 +360,7 @@
                                                                         <ColumnDefinition Width="Auto"/>
                                                                     </Grid.ColumnDefinitions>
                                                                     <TextBlock Grid.Column="0" Text="{Binding LayerName}" FontWeight="Bold" FontSize="11" Foreground="{StaticResource AccentPurpleBrush}"/>
-                                                                    <!-- Excluded badge -->
+                                                                    
                                                                     <Border Grid.Column="1" Background="#6B2020" CornerRadius="3" Padding="4,1" Margin="4,0,0,0">
                                                                         <Border.Style>
                                                                             <Style TargetType="Border">
@@ -415,7 +409,7 @@
                     </Grid>
                 </Border>
 
-                <!-- ================= 🏗️ SONDAJ KUYULARI İNTERAKTİF YÖNETİM PANENİ ================= -->
+                
                 <Border Background="{StaticResource PanelDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,16" BorderBrush="{StaticResource AccentCyanBrush}" BorderThickness="1">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -423,7 +417,7 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Panel Başlığı & Kuyu Sayısı Elle Giriş Kutusı -->
+                        
                         <Grid Grid.Row="0" Margin="0,0,0,12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -440,14 +434,14 @@
                                 </StackPanel>
                             </StackPanel>
 
-                            <!-- Sondaj Kuyusu Sayısı ELLE GİRİŞ KUTUSU -->
+                            
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="Sondaj Kuyusu Sayısı (Elle Girin):" FontSize="12" Foreground="{StaticResource AccentCyanBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                 <TextBox Text="{Binding DrillingWellCountInput, UpdateSourceTrigger=PropertyChanged}" Width="65" Style="{StaticResource DarkTextBoxStyle}"/>
                             </StackPanel>
                         </Grid>
 
-                        <!-- Dinamik Sondaj Kuyu Kartları -->
+                        
                         <ItemsControl Grid.Row="1" ItemsSource="{Binding DrillingWells}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -458,12 +452,12 @@
                                 <DataTemplate DataType="{x:Type vm:DrillingWellViewModel}">
                                     <Border Width="385" Margin="0,0,12,12" Background="#1A1A24" CornerRadius="10" Padding="12" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
                                         <StackPanel>
-                                            <!-- Kuyu Başlığı -->
+                                            
                                             <Border Background="#20202B" CornerRadius="6" Padding="8,4" Margin="0,0,0,8">
                                                 <TextBlock Text="{Binding WellName, StringFormat='📌 {0} Kuyusu Detayları'}" FontWeight="Bold" FontSize="12" Foreground="{StaticResource AccentCyanBrush}"/>
                                             </Border>
 
-                                            <!-- Enlem & Boylam -->
+                                            
                                             <Grid Margin="0,0,0,6">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
@@ -480,7 +474,7 @@
                                                 </StackPanel>
                                             </Grid>
 
-                                            <!-- Arazi Kotu & Sondaj Dip Kotu & Metre -->
+                                            
                                             <Grid Margin="0,0,0,6">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
@@ -503,7 +497,7 @@
                                                 </StackPanel>
                                             </Grid>
 
-                                            <!-- Tarihler: Başlangıç & Bitiş -->
+                                            
                                             <Grid Margin="0,0,0,6">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
@@ -520,7 +514,7 @@
                                                 </StackPanel>
                                             </Grid>
 
-                                            <!-- Sonuç & Presiyometre Deneyi & Kuyu Çökmesi CheckBox -->
+                                            
                                             <Grid Margin="0,0,0,4">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
@@ -529,9 +523,9 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0" Text="Açıklama / Sonuç:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                                <!-- Presiyometre Deneyi -->
+                                                
                                                 <CheckBox Grid.Column="1" Content="Presiyometre Deneyi" IsChecked="{Binding HasPressuremeterTest, UpdateSourceTrigger=PropertyChanged}" Foreground="#A5F3FC" FontSize="10" VerticalAlignment="Center" Cursor="Hand"/>
-                                                <!-- Kuyu Çökmesi -->
+                                                
                                                 <CheckBox Grid.Column="3" Content="Kuyu Çökmesi" IsChecked="{Binding IsCollapsed, UpdateSourceTrigger=PropertyChanged}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" VerticalAlignment="Center" Cursor="Hand"/>
                                             </Grid>
                                             <TextBox Text="{Binding GroundwaterStatus, UpdateSourceTrigger=PropertyChanged}" 
@@ -551,7 +545,7 @@
                                                 </TextBox.Style>
                                             </TextBox>
 
-                                             <!-- Presiyometre Deneyi Veri Giriş Paneli -->
+                                             
                                              <Border Margin="0,2,0,8">
                                                  <Border.Style>
                                                      <Style TargetType="Border">
@@ -565,7 +559,7 @@
                                                  </Border.Style>
                                                  <Border Background="#0D1B2A" CornerRadius="8" Padding="10,8" BorderBrush="#2A6496" BorderThickness="1">
                                                      <StackPanel>
-                                                         <!-- Başlık + Ekle/Sil Butonları -->
+                                                         
                                                          <Grid Margin="0,0,0,6">
                                                              <Grid.ColumnDefinitions>
                                                                  <ColumnDefinition Width="*"/>
@@ -624,7 +618,7 @@
                                                              </Button>
                                                          </Grid>
 
-                                                         <!-- Sütun Başlıkları -->
+                                                         
                                                          <Grid Margin="0,0,0,4">
                                                              <Grid.ColumnDefinitions>
                                                                  <ColumnDefinition Width="*"/>
@@ -641,7 +635,7 @@
                                                              <TextBlock Grid.Column="6" Text="Em (kg/cm²)" FontSize="9" Foreground="#64B5F6" FontWeight="Bold"/>
                                                          </Grid>
 
-                                                         <!-- Satır Listesi -->
+                                                         
                                                          <ItemsControl ItemsSource="{Binding PressuremeterRows}">
                                                              <ItemsControl.ItemTemplate>
                                                                  <DataTemplate DataType="{x:Type vm:PressuremeterRowViewModel}">
@@ -667,7 +661,7 @@
                                                  </Border>
                                              </Border>
 
-                                            <!-- Yeraltı Suyu Ölçümleri -->
+                                            
                                             <Border Background="#20202B" CornerRadius="6" Padding="8,4" Margin="0,2,0,6">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
@@ -682,14 +676,16 @@
                                                 </Grid>
                                             </Border>
 
-                                            <!-- Ölçüm Listesi (Dinamik) -->
+                                            
                                             <ItemsControl ItemsSource="{Binding Measurements}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate DataType="{x:Type vm:GroundwaterMeasurementViewModel}">
                                                         <Grid Margin="0,0,0,6">
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="8"/>
+                                                                <ColumnDefinition Width="6"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="6"/>
                                                                 <ColumnDefinition Width="*"/>
                                                             </Grid.ColumnDefinitions>
                                                             <StackPanel Grid.Column="0">
@@ -699,6 +695,10 @@
                                                             <StackPanel Grid.Column="2">
                                                                 <TextBlock Text="Yeraltı Suyu (m.):" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
                                                                 <TextBox Text="{Binding WaterDepth, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsEditable}" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                            </StackPanel>
+                                                            <StackPanel Grid.Column="4">
+                                                                <TextBlock Text="Gün / Açıklama:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                                <TextBox Text="{Binding Day, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBoxStyle}"/>
                                                             </StackPanel>
                                                         </Grid>
                                                     </DataTemplate>
@@ -712,7 +712,7 @@
                     </Grid>
                 </Border>
 
-                <!-- ================= 📡 MİKROTREMÖR ÖLÇÜMÜ ================= -->
+                
                 <Border Background="{StaticResource PanelDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,16" BorderBrush="#F59E0B" BorderThickness="1">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -720,7 +720,7 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Panel Başlığı & Ölçüm Sayısı -->
+                        
                         <Grid Grid.Row="0" Margin="0,0,0,14">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -737,14 +737,14 @@
                                 </StackPanel>
                             </StackPanel>
 
-                            <!-- Mikrotremör Ölçüm Sayısı -->
+                            
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="Ölçüm Sayısı (Elle Girin):" FontSize="12" Foreground="#F59E0B" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                 <TextBox Text="{Binding MicrotremorCountInput, UpdateSourceTrigger=PropertyChanged}" Width="65" Style="{StaticResource DarkTextBoxStyle}"/>
                             </StackPanel>
                         </Grid>
 
-                        <!-- Ölçüm Kartları -->
+                        
                         <ItemsControl Grid.Row="1" ItemsSource="{Binding MicrotremorMeasurements}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -756,17 +756,17 @@
                                     <Border Width="430" Margin="0,0,12,12" Background="#1A1A24" CornerRadius="10" Padding="12" BorderBrush="#92400E" BorderThickness="1">
                                         <StackPanel>
 
-                                            <!-- Ölçüm Başlığı -->
+                                            
                                             <Border Background="#20202B" CornerRadius="6" Padding="8,4" Margin="0,0,0,10">
                                                 <TextBlock Text="{Binding DisplayName, StringFormat='📡 {0}'}" FontWeight="Bold" FontSize="12" Foreground="#F59E0B"/>
                                             </Border>
 
-                                            <!-- TABLO 1: Ölçüm Veri Tablosu Başlığı -->
+                                            
                                             <Border Background="#1A1200" CornerRadius="6" Padding="8,4" Margin="0,0,0,6" BorderBrush="#78350F" BorderThickness="1">
                                                 <TextBlock Text="Tablo 1 — Ölçüm Verileri: Ölçü No / T0 / Ta / Tb / Frekans" FontSize="10" FontWeight="Bold" Foreground="#FCD34D"/>
                                             </Border>
 
-                                            <!-- TABLO 1 Grid: T0, Ta, Tb, Frekans -->
+                                            
                                             <Grid Margin="0,0,0,10">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
@@ -778,28 +778,28 @@
                                                     <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
 
-                                                <!-- T0 -->
+                                                
                                                 <StackPanel Grid.Column="0">
                                                     <TextBlock Text="T0 (sn):" FontSize="10" Foreground="#F59E0B" FontWeight="Bold"/>
                                                     <TextBox Text="{Binding T0, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="4,4" Style="{StaticResource DarkTextBoxStyle}"
                                                              ToolTip="Raporda: MT_[N]_T0 — Hakim periyot değeri (sn)"/>
                                                 </StackPanel>
 
-                                                <!-- Ta -->
+                                                
                                                 <StackPanel Grid.Column="2">
                                                     <TextBlock Text="Ta:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
                                                     <TextBox Text="{Binding Ta, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="4,4" Style="{StaticResource DarkTextBoxStyle}"
                                                              ToolTip="Raporda: MT_[N]_TA — Alt periyot değeri"/>
                                                 </StackPanel>
 
-                                                <!-- Tb -->
+                                                
                                                 <StackPanel Grid.Column="4">
                                                     <TextBlock Text="Tb:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
                                                     <TextBox Text="{Binding Tb, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="4,4" Style="{StaticResource DarkTextBoxStyle}"
                                                              ToolTip="Raporda: MT_[N]_TB — Üst periyot değeri"/>
                                                 </StackPanel>
 
-                                                <!-- Frekans -->
+                                                
                                                 <StackPanel Grid.Column="6">
                                                     <TextBlock Text="Frekans (Hz):" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
                                                     <TextBox Text="{Binding Frequency, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="4,4" Style="{StaticResource DarkTextBoxStyle}"
@@ -807,12 +807,12 @@
                                                 </StackPanel>
                                             </Grid>
 
-                                            <!-- TABLO 2: Konum Tablosu Başlığı -->
+                                            
                                             <Border Background="#111A12" CornerRadius="6" Padding="8,4" Margin="0,0,0,6" BorderBrush="#166534" BorderThickness="1">
                                                 <TextBlock Text="Tablo 2 — Konum Bilgileri: Ölçüm No / Tarih / Yatay Koordinat / Düşey Koordinat" FontSize="10" FontWeight="Bold" Foreground="#86EFAC"/>
                                             </Border>
 
-                                            <!-- TABLO 2 Grid: Tarih, Yatay, Düşey -->
+                                            
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
@@ -822,21 +822,21 @@
                                                     <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
 
-                                                <!-- Tarih -->
+                                                
                                                 <StackPanel Grid.Column="0">
                                                     <TextBlock Text="Tarih:" FontSize="10" Foreground="#86EFAC" FontWeight="Bold"/>
                                                     <TextBox Text="{Binding Date, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="4,4" Style="{StaticResource DarkTextBoxStyle}"
                                                              ToolTip="Raporda: MT_[N]_DATE veya MT_[N]_TARIH — Ölçüm tarihi"/>
                                                 </StackPanel>
 
-                                                <!-- Yatay Koordinat -->
+                                                
                                                 <StackPanel Grid.Column="2">
                                                     <TextBlock Text="Yatay Koor. (X):" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
                                                     <TextBox Text="{Binding HorizontalCoordinate, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="4,4" Style="{StaticResource DarkTextBoxStyle}"
                                                              ToolTip="Raporda: MT_[N]_X veya MT_[N]_YATAY — Yatay koordinat"/>
                                                 </StackPanel>
 
-                                                <!-- Düşey Koordinat -->
+                                                
                                                 <StackPanel Grid.Column="4">
                                                     <TextBlock Text="Düşey Koor. (Y):" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
                                                     <TextBox Text="{Binding VerticalCoordinate, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="4,4" Style="{StaticResource DarkTextBoxStyle}"
@@ -852,7 +852,7 @@
                     </Grid>
                 </Border>
 
-                <!-- ================= 🌍 FORMASYON SEÇİMİ ================= -->
+                
                 <Border Background="{StaticResource PanelDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,16" BorderBrush="#14B8A6" BorderThickness="1">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -877,7 +877,7 @@
                     </Grid>
                 </Border>
 
-                <!-- ================= 📝 GENEL DEĞİŞKENLER İNPUT GRID ================= -->
+                
                 <ItemsControl ItemsSource="{Binding FilteredVariablesView}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -886,7 +886,7 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:VariableItemViewModel}">
-                            <!-- Variable Input Card -->
+                            
                             <Border Width="385" Margin="0,0,12,12" Background="{StaticResource CardDarkBrush}" CornerRadius="10" Padding="14" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -896,7 +896,7 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
-                                    <!-- Header: Title + Type Badge -->
+                                    
                                     <Grid Grid.Row="0" Margin="0,0,0,4">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -905,7 +905,7 @@
 
                                         <TextBlock Grid.Column="0" Text="{Binding DisplayName}" FontWeight="Bold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
 
-                                        <!-- Badge for Type -->
+                                        
                                         <Border Grid.Column="1" CornerRadius="4" Padding="6,2" Margin="6,0,0,0">
                                             <Border.Style>
                                                 <Style TargetType="Border">
@@ -938,7 +938,7 @@
                                         </Border>
                                     </Grid>
 
-                                    <!-- Placeholder Key Tag -->
+                                    
                                     <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
                                         <Border Background="#13131A" CornerRadius="4" Padding="5,2" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
                                             <TextBlock Text="{Binding Key, StringFormat='\{\{\{0\}\}\}'}" FontSize="11" FontFamily="Consolas, Courier New" Foreground="{StaticResource AccentCyanBrush}"/>
@@ -946,14 +946,14 @@
                                         <TextBlock Text="{Binding Hint}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="8,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
 
-                                    <!-- Input Box (Disabled / ReadOnly for Dependent variables) -->
+                                    
                                     <TextBox Grid.Row="2" 
                                              Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" 
                                              IsEnabled="{Binding IsEnabled}" 
                                              IsReadOnly="{Binding IsReadOnly}" 
                                              Style="{StaticResource DarkTextBoxStyle}"/>
 
-                                    <!-- Sub-info for Dependent variables -->
+                                    
                                     <Grid Grid.Row="3" Margin="0,4,0,0">
                                         <Grid.Style>
                                             <Style TargetType="Grid">
@@ -975,7 +975,7 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- 4. BOTTOM ACTION & STATUS FOOTER -->
+        
         <Border Grid.Row="4" Background="{StaticResource PanelDarkBrush}" CornerRadius="12" Padding="16" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -983,7 +983,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Status Message Banner -->
+                
                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="{Binding StatusMessage}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap">
                         <TextBlock.Style>
@@ -1005,7 +1005,7 @@
                     </TextBlock>
                 </StackPanel>
 
-                <!-- FLOATING GENERATE BUTTON FIXED AT BOTTOM RIGHT -->
+                
                 <Button Grid.Column="1" 
                         Content="Oluştur (Tüm Şablonları İşle)" 
                         Command="{Binding GenerateDocumentCommand}" 

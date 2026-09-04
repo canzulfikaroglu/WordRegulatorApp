@@ -1,4 +1,4 @@
-
+﻿
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace WordRegulatorApp.ViewModels;
@@ -12,16 +12,12 @@ public partial class Vs30LayerViewModel : ObservableObject
     private string _startDepthInput = "0.00";
 
     [ObservableProperty]
-    private string _endDepthInput = "1.10"; // Max Derinlik (m)
+    private string _endDepthInput = "1.10"; 
 
     [ObservableProperty]
-    private string _velocityInput = "157.00"; // Vs (m/s)
+    private string _velocityInput = "157.00"; 
 
-    /// <summary>
-    /// Görev 5: df değeri bu tabakanın üst değerinden büyük olduğunda true.
-    /// Formüle dahil edilmez; UI'da silik gösterilir.
-    /// </summary>
-    [ObservableProperty]
+        [ObservableProperty]
     private bool _isExcluded = false;
 
     public double StartDepth => double.TryParse(StartDepthInput.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0.0;

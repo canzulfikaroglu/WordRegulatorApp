@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using WordRegulator.Domain.Interfaces;
 
@@ -26,7 +26,7 @@ public partial class LicenseKeyWindow : Window
 
     private void LicenseKeyTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
-        // Otomatik tire ekleme: WORD-XXXX-XXXX-XXXX
+        
         var raw = LicenseKeyTextBox.Text.Replace("-", "").ToUpper();
         if (raw.Length > 16) raw = raw[..16];
 
@@ -37,7 +37,7 @@ public partial class LicenseKeyWindow : Window
         LicenseKeyTextBox.CaretIndex = formatted.Length;
         LicenseKeyTextBox.TextChanged += LicenseKeyTextBox_TextChanged;
 
-        // Buton aktif: 19 karakter (WORD-XXXX-XXXX-XXXX) dolduğunda
+        
         ActivateButton.IsEnabled = formatted.Length == 19;
         ErrorBorder.Visibility = Visibility.Collapsed;
     }
@@ -55,7 +55,7 @@ public partial class LicenseKeyWindow : Window
     {
         var key = LicenseKeyTextBox.Text.Trim();
 
-        // UI: yükleniyor
+        
         ActivateButton.IsEnabled = false;
         LoadingOverlay.Visibility = Visibility.Visible;
         ErrorBorder.Visibility = Visibility.Collapsed;

@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -32,7 +32,6 @@ public partial class MainWindow : Window
         SaveSettings();
         Close();
     }
-
 
     private async void LoadLicenses_Click(object sender, RoutedEventArgs e)
     {
@@ -90,7 +89,6 @@ public partial class MainWindow : Window
         }
     }
 
-
     private async void NewLicense_Click(object sender, RoutedEventArgs e)
     {
         if (!ValidateInputs()) return;
@@ -124,7 +122,6 @@ public partial class MainWindow : Window
         }
     }
 
-
     private void CopyKey_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button btn && btn.Tag is string key)
@@ -133,7 +130,6 @@ public partial class MainWindow : Window
             StatusText.Text = $"Kopyalandı: {key}";
         }
     }
-
 
     private async Task<List<LicenseInfo>> FetchLicensesAsync()
     {

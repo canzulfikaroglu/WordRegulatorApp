@@ -1,4 +1,4 @@
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -7,7 +7,6 @@ using WordRegulator.Domain.Interfaces;
 using WordRegulator.Domain.Models;
 
 namespace WordRegulator.Infrastructure.Services;
-
 
 public class LicenseService : ILicenseService
 {
@@ -22,14 +21,12 @@ public class LicenseService : ILicenseService
 
     private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(10) };
 
-
     public async Task<LicenseCheckResult> CheckLicenseAsync(string licenseKey)
     {
         if (string.IsNullOrWhiteSpace(licenseKey))
             return LicenseCheckResult.Invalid("Lisans anahtarı boş olamaz.");
 
         var gistUrl = GetGistUrl();
-
 
         if (!string.IsNullOrWhiteSpace(gistUrl))
         {
@@ -63,7 +60,6 @@ public class LicenseService : ILicenseService
         using var key = Registry.CurrentUser.CreateSubKey(RegistryKeyPath, writable: true);
         key.SetValue(RegistryValueName, licenseKey);
     }
-
 
     private static string? GetGistUrl()
     {
@@ -114,7 +110,6 @@ public class LicenseService : ILicenseService
         return LicenseCheckResult.Valid();
     }
 
-
     private record CacheEntry(string LicenseKey, DateTime LastVerified);
 
     private void SaveCache(string licenseKey)
@@ -159,8 +154,6 @@ public class LicenseService : ILicenseService
             return LicenseCheckResult.Invalid("Lisans doğrulanamadı. İnternet bağlantınızı kontrol edin.");
         }
     }
-
-
 
     private static byte[] GetMachineKey()
     {

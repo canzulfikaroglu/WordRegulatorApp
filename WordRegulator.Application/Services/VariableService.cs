@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using WordRegulator.Application.Interfaces;
 using WordRegulator.Domain.Entities;
 using WordRegulator.Domain.Enums;
@@ -17,7 +17,7 @@ public class VariableService : IVariableService
 
         var list = new List<VariableDefinition>
         {
-            // ================= 1. Ön Kapak =================
+            
             new("PROVİNCE", "İl", "İl adı", VariableCategory.OnKapak, VariableType.Independent, "İstanbul", order: 1),
             new("DİSTRİCT", "İlçe", "İlçe adı", VariableCategory.OnKapak, VariableType.Independent, "Kartal", order: 2),
             new("NEİGHBOURHOOD", "Mahalle", "Mahalle adı", VariableCategory.OnKapak, VariableType.Independent, "Çavuşoğlu", order: 3),
@@ -29,13 +29,13 @@ public class VariableService : IVariableService
             new("MONTH", "Ay", "Ay bilgisi", VariableCategory.OnKapak, VariableType.Independent, monthName, order: 8),
             new("YEAR", "Yıl", "Yıl bilgisi", VariableCategory.OnKapak, VariableType.Independent, yearString, order: 9),
 
-            // ================= 1.2 KARTAL--Veri Kapak =================
+            
             new("SHEETİSLANDPARCEL", "Pafta Ada Parsel (Birleşik)", "G22A136MD PAFTA 2249 ADA 85 PARSEL", VariableCategory.VeriKapak, VariableType.Independent, "G22A136MD 250 PAFTA 2249 ADA 85 PARSEL", formula: "{SHEET} PAFTA {İSLAND} ADA {PARCEL} PARSEL", order: 10),
             
             new("LOCALSOİLCLASS", "Yerel Zemin Sınıfı", "Yerel Zemin Sınıfı (Örn: ZF, ZC)", VariableCategory.VeriKapak, VariableType.Independent, "ZF", order: 14),
             new("GROUNDWATERLEVEL", "Yeraltı Suyu Seviyesi", "Sondaj kuyuları su durumu", VariableCategory.VeriKapak, VariableType.Dependent, "Yeraltı suyuna rastlanmamıştır.", order: 15),
 
-            // ================= 3. Rapor =================
+            
             new("LATİTUDE", "Enlem", "Enlem koordinatı", VariableCategory.Rapor, VariableType.Independent, "", order: 20),
             new("LONGİTUDE", "Boylam", "Boylam koordinatı", VariableCategory.Rapor, VariableType.Independent, "", order: 21),
             new("DRİLLİNGWELLCOUNT", "Sondaj Kuyusu Sayısı", "Sondaj kuyusu sayısı (Sondaj kuyuları panelinden otomatik)", VariableCategory.Rapor, VariableType.Dependent, "3", order: 22),
@@ -101,17 +101,17 @@ public class VariableService : IVariableService
 
             if (i == 0)
             {
-                // 1. Tabaka: h1 = max_derinlik - Df (Örn: 1.10 - 0.82 = 0.28m)
+                
                 h_i = Math.Max(0, layer.EndDepth - df);
             }
             else if (i < layerList.Count - 1)
             {
-                // Ara tabakalar: max_derinlik - önceki tabaka max_derinlik
+                
                 h_i = Math.Max(0, layer.EndDepth - layerList[i - 1].EndDepth);
             }
             else
             {
-                // Son tabaka: 30'dan önceki tabaka kalınlıkları toplamının çıkarılması
+                
                 h_i = Math.Max(0, 30.0 - sumThickness);
             }
 
@@ -151,7 +151,7 @@ public class VariableService : IVariableService
             }
             else
             {
-                // Son ölçümün değerini al (en son oluşturulan ölçüm = en son su seviyesi)
+                
                 var lastMeasurement = well.Measurements.LastOrDefault();
                 string lastDepthRaw = lastMeasurement?.WaterDepth ?? string.Empty;
                 var normalizedLast = lastDepthRaw.Replace(',', '.');
@@ -186,14 +186,14 @@ public class VariableService : IVariableService
         var replacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var wellList = wells.ToList();
 
-        // ===== SKBASEDEEP — tüm kuyular için birleşik temel derinlik metni =====
+        
         var skBaseDeepParts = new List<string>();
         for (int i = 0; i < wellList.Count; i++)
         {
             var w = wellList[i];
             bool isLast = (i == wellList.Count - 1);
 
-            // Arazi kotunu sayısal parse et
+            
             string groundKotRaw = w.GroundKot.Replace(',', '.');
             double.TryParse(groundKotRaw, NumberStyles.Any, CultureInfo.InvariantCulture, out var groundKotVal);
 
@@ -210,7 +210,7 @@ public class VariableService : IVariableService
         }
         replacements["SKBASEDEEP"] = string.Join("\n", skBaseDeepParts);
 
-        // ===== Kuyu bazlı replacements =====
+        
         for (int i = 0; i < wellList.Count; i++)
         {
             var w = wellList[i];
@@ -230,12 +230,12 @@ public class VariableService : IVariableService
 
             if (w.Measurements.Count > 0)
             {
-                // Son ölçüm tarih ve su değerini kullan
+                
                 var lastM = w.Measurements.Last();
                 replacements[$"SK{idx}_MEASURE_DATE"] = lastM.MeasurementDate;
                 replacements[$"SK{idx}_WATER_DEPTH"] = lastM.WaterDepth;
 
-                // Aynı zamanda tüm ölçümleri ayrı ayrı ekle: SK1_MEASURE1_DATE, SK1_MEASURE1_DEPTH vb.
+                
                 for (int m = 0; m < w.Measurements.Count; m++)
                 {
                     int mIdx = m + 1;
@@ -249,11 +249,11 @@ public class VariableService : IVariableService
                 replacements[$"SK{idx}_WATER_DEPTH"] = w.IsCollapsed ? "Kuyu çökmüş" : string.Empty;
             }
 
-            // ===== Presiyometre — kuyu başlık değişkenleri =====
+            
             replacements[$"SK{idx}_PM_ZEMIN_KOTU"] = w.GroundKot;
             replacements[$"SK{idx}_PM_COUNT"] = w.PressuremeterRows.Count.ToString();
         }
-        // ===== PM_WELL_NAMES ve SEISMIC_MEASUREMENT_COUNT =====
+        
         var pmWells = wellList.Where(w => w.HasPressuremeterTest).Select(w => w.WellName).ToList();
         if (pmWells.Count > 1)
         {
@@ -283,7 +283,7 @@ public class VariableService : IVariableService
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var layerList = layers.OrderBy(l => l.LayerNumber).ToList();
 
-        // DF değişkeni
+        
         result["VS30_DF"] = df.ToString("F2", TrCulture);
 
         double sumThickness = 0;
@@ -307,7 +307,7 @@ public class VariableService : IVariableService
             if (layer.Velocity > 0)
                 sumTime += (h_i / layer.Velocity);
 
-            // Her tabaka için değişkenler
+            
             string startStr = layer.StartDepth.ToString("F2", TrCulture);
             string endStr = layer.EndDepth.ToString("F2", TrCulture);
             string vsStr = layer.Velocity.ToString("F0", TrCulture);
@@ -319,19 +319,19 @@ public class VariableService : IVariableService
             result[$"VS30_H{num}"] = hStr;
             result[$"VS30_VS{num}"] = vsStr;
 
-            // Formül parçası: (0,28/157)
+            
             formulaParts.Add($"({hStr}/{vsStr})");
         }
 
-        // Formül string'i: 30/[(0,28/157)+(6,40/1008)+...]
+        
         string formulaBody = string.Join("+", formulaParts);
         result["VS30_FORMULA"] = $"30/[{formulaBody}]";
 
-        // Final VS30 değeri
+        
         double vs30Val = sumTime > 0 ? 30.0 / sumTime : 0;
         string vs30Str = $"{Math.Round(vs30Val)} m/s";
 
-        // Tam formül: Vs30 = 30/[(0,28/157)+...] = 1101 m/s
+        
         result["VS30_FORMULA_FULL"] = $"Vs30 = 30/[{formulaBody}] = {vs30Str}";
 
         return result;

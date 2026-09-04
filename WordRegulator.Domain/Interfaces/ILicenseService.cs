@@ -1,14 +1,11 @@
-namespace WordRegulator.Domain.Interfaces;
-
+﻿namespace WordRegulator.Domain.Interfaces;
 
 public interface ILicenseService
 {
 
     Task<LicenseCheckResult> CheckLicenseAsync(string licenseKey);
 
-
     string? GetStoredLicenseKey();
-
 
     void StoreLicenseKey(string licenseKey);
 }

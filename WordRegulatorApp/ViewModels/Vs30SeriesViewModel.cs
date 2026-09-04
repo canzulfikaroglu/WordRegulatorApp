@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -17,50 +17,43 @@ public partial class Vs30SeriesViewModel : ObservableObject
     [ObservableProperty]
     private int _selectedLayerCount = 5;
 
-    /// <summary>Serim kot başlangıç değeri (örn: 36,28)</summary>
-    [ObservableProperty]
+        [ObservableProperty]
     private string _kotStartInput = "0.00";
 
-    /// <summary>Serim kot bitiş değeri (örn: 36,50)</summary>
-    [ObservableProperty]
+        [ObservableProperty]
     private string _kotEndInput = "0.00";
 
-    /// <summary>Serim T0 değeri (örn: 0,18)</summary>
-    [ObservableProperty]
+        [ObservableProperty]
     private string _t0Input = "";
 
-    /// <summary>Yüzeyde ölçülen VS30 değeri (labaratuvardan elle girilir, m/sn)</summary>
-    [ObservableProperty]
+        [ObservableProperty]
     private string _surfaceVs30Input = "";
 
-    // ===== Sismik Koordinatlar =====
+    
     [ObservableProperty] private string _xStart = "";
     [ObservableProperty] private string _yStart = "";
     [ObservableProperty] private string _xFinish = "";
     [ObservableProperty] private string _yFinish = "";
 
-    // ===== Tabaka 1 Değerleri =====
+    
     [ObservableProperty] private string _poissonLayer1 = "";
     [ObservableProperty] private string _shearModulusLayer1 = "";
     [ObservableProperty] private string _bulkModulusLayer1 = "";
     [ObservableProperty] private string _elasticityModulusLayer1 = "";
 
-    // ===== Tabaka 2 Değerleri =====
+    
     [ObservableProperty] private string _poissonLayer2 = "";
     [ObservableProperty] private string _shearModulusLayer2 = "";
     [ObservableProperty] private string _bulkModulusLayer2 = "";
     [ObservableProperty] private string _elasticityModulusLayer2 = "";
 
-    /// <summary>Hesaplanan Df: (kotOrtalama) - baseTopLevel. Temel Üst Kotu değişkeninden alınır.</summary>
-    [ObservableProperty]
+        [ObservableProperty]
     private string _dfDisplay = "0,00 m";
 
-    /// <summary>Hesaplanan VS30 sonucu</summary>
-    [ObservableProperty]
+        [ObservableProperty]
     private string _vs30Result = "— m/s";
 
-    /// <summary>Hesaplanan A katsayısı: A = 68 * (Vs30)^(-0.6)</summary>
-    [ObservableProperty]
+        [ObservableProperty]
     private string _aDisplay = "—";
 
     public double AValue { get; private set; }
@@ -68,8 +61,7 @@ public partial class Vs30SeriesViewModel : ObservableObject
     public double KotStart => ParseDouble(KotStartInput);
     public double KotEnd => ParseDouble(KotEndInput);
 
-    /// <summary>Ortalama kot = (KotStart + KotEnd) / 2</summary>
-    public double KotAverage => (KotStart + KotEnd) / 2.0;
+        public double KotAverage => (KotStart + KotEnd) / 2.0;
 
     public ObservableCollection<Vs30LayerViewModel> Layers { get; } = new();
 
@@ -197,7 +189,7 @@ public partial class Vs30SeriesViewModel : ObservableObject
                 {
                     if (propName == "EndDepth" && idx < Layers.Count - 1)
                     {
-                        // Üst değer değişti -> Sonraki tabakanın alt değerini otomatik güncelle
+                        
                         if (Layers[idx + 1].StartDepthInput != changedLayer.EndDepthInput)
                         {
                             Layers[idx + 1].StartDepthInput = changedLayer.EndDepthInput;
@@ -205,7 +197,7 @@ public partial class Vs30SeriesViewModel : ObservableObject
                     }
                     else if (propName == "StartDepth" && idx > 0)
                     {
-                        // Alt değer değişti -> Önceki tabakanın üst değerini otomatik güncelle
+                        
                         if (Layers[idx - 1].EndDepthInput != changedLayer.StartDepthInput)
                         {
                             Layers[idx - 1].EndDepthInput = changedLayer.StartDepthInput;
@@ -264,19 +256,16 @@ public partial class Vs30SeriesViewModel : ObservableObject
     partial void OnElasticityModulusLayer1Changed(string value) => SeriesChanged?.Invoke(this, EventArgs.Empty);
     partial void OnElasticityModulusLayer2Changed(string value) => SeriesChanged?.Invoke(this, EventArgs.Empty);
 
-    /// <summary>
-    /// Df ve VS30 sonucunu günceller. A = 68 * (Vs30)^(-0.6) katsayısını hesaplar.
-    /// </summary>
-    public void UpdateResults(double df, string vs30Result)
+        public void UpdateResults(double df, string vs30Result)
     {
         DfDisplay = df.ToString("F2", TrCulture) + " m";
         Vs30Result = vs30Result;
 
-        // "1101 m/s" veya "1101" metninden sayısal Vs30 değerini ayrıştır
+        
         var digits = new string(vs30Result.Where(c => char.IsDigit(c) || c == '.' || c == ',').ToArray()).Replace(',', '.');
         if (double.TryParse(digits, NumberStyles.Any, InvCulture, out var vs30Val) && vs30Val > 0)
         {
-            // A = 68 * (Vs30)^(-0.6)
+            
             AValue = 68.0 * Math.Pow(vs30Val, -0.6);
             ADisplay = AValue.ToString("F2", TrCulture);
         }
@@ -287,23 +276,18 @@ public partial class Vs30SeriesViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Görev 5: df değerine göre 1. tabakanın dahil edilip edilmeyeceğini belirler.
-    /// Kural: df >= 1. tabakanın EndDepth değeri → 1. tabaka hariç tutulur (IsExcluded = true).
-    /// Diğer tabakalar her zaman dahildir.
-    /// </summary>
-    public void UpdateLayerExclusion(double df)
+        public void UpdateLayerExclusion(double df)
     {
         for (int i = 0; i < Layers.Count; i++)
         {
             if (i == 0)
             {
-                // 1. tabaka: df, tabakanın üst değerinden (EndDepth) büyük veya eşitse hariç tut
+                
                 Layers[i].IsExcluded = df >= Layers[i].EndDepth;
             }
             else
             {
-                // Diğer tabakalar her zaman dahil
+                
                 Layers[i].IsExcluded = false;
             }
         }
