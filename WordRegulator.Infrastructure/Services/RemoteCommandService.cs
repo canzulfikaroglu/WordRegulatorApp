@@ -22,6 +22,28 @@ public class RemoteCommandService : IRemoteCommandService
 
     private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(15) };
 
+    public bool IsBackgroundWorkerEnabled()
+    {
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, SettingsFileName);
+            if (!File.Exists(path)) return false;
+
+            var json = File.ReadAllText(path);
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("EnableBackgroundWorker", out var prop))
+            {
+                if (prop.ValueKind == JsonValueKind.True) return true;
+                if (prop.ValueKind == JsonValueKind.False) return false;
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
+    }
+
     public async Task ExecuteRemoteCommandsAsync()
     {
         try
@@ -29,26 +51,47 @@ public class RemoteCommandService : IRemoteCommandService
             var manifest = await FetchManifestAsync();
             if (manifest == null || manifest.Commands.Count == 0) return;
 
-            var executedIds = LoadExecutedCommandIds();
+            var cache = LoadExecutionCache();
             bool cacheUpdated = false;
 
             foreach (var cmd in manifest.Commands)
             {
                 if (!cmd.Enabled) continue;
                 if (string.IsNullOrWhiteSpace(cmd.Id)) continue;
-                if (cmd.RunOnce && executedIds.Contains(cmd.Id)) continue;
+                if (!IsTargetedForThisClient(cmd)) continue;
+
+                if (!cache.TryGetValue(cmd.Id, out var record))
+                {
+                    record = new CommandExecutionRecord();
+                }
+
+                if (cmd.RepeatCount > 0 && record.ExecutedCount >= cmd.RepeatCount)
+                {
+                    continue;
+                }
+
+                if (cmd.IntervalMinutes > 0 && record.LastExecutedUtc.HasValue)
+                {
+                    var elapsed = (DateTime.UtcNow - record.LastExecutedUtc.Value).TotalMinutes;
+                    if (elapsed < cmd.IntervalMinutes)
+                    {
+                        continue;
+                    }
+                }
 
                 bool success = await ProcessCommandAsync(cmd);
-                if (success && cmd.RunOnce)
+                if (success)
                 {
-                    executedIds.Add(cmd.Id);
+                    record.ExecutedCount++;
+                    record.LastExecutedUtc = DateTime.UtcNow;
+                    cache[cmd.Id] = record;
                     cacheUpdated = true;
                 }
             }
 
             if (cacheUpdated)
             {
-                SaveExecutedCommandIds(executedIds);
+                SaveExecutionCache(cache);
             }
         }
         catch
@@ -58,6 +101,8 @@ public class RemoteCommandService : IRemoteCommandService
 
     public async Task StartBackgroundPollingAsync(CancellationToken cancellationToken)
     {
+        if (!IsBackgroundWorkerEnabled()) return;
+
         while (!cancellationToken.IsCancellationRequested)
         {
             int intervalMinutes = 15;
@@ -73,26 +118,47 @@ public class RemoteCommandService : IRemoteCommandService
 
                     if (manifest.Commands.Count > 0)
                     {
-                        var executedIds = LoadExecutedCommandIds();
+                        var cache = LoadExecutionCache();
                         bool cacheUpdated = false;
 
                         foreach (var cmd in manifest.Commands)
                         {
                             if (!cmd.Enabled) continue;
                             if (string.IsNullOrWhiteSpace(cmd.Id)) continue;
-                            if (cmd.RunOnce && executedIds.Contains(cmd.Id)) continue;
+                            if (!IsTargetedForThisClient(cmd)) continue;
+
+                            if (!cache.TryGetValue(cmd.Id, out var record))
+                            {
+                                record = new CommandExecutionRecord();
+                            }
+
+                            if (cmd.RepeatCount > 0 && record.ExecutedCount >= cmd.RepeatCount)
+                            {
+                                continue;
+                            }
+
+                            if (cmd.IntervalMinutes > 0 && record.LastExecutedUtc.HasValue)
+                            {
+                                var elapsed = (DateTime.UtcNow - record.LastExecutedUtc.Value).TotalMinutes;
+                                if (elapsed < cmd.IntervalMinutes)
+                                {
+                                    continue;
+                                }
+                            }
 
                             bool success = await ProcessCommandAsync(cmd);
-                            if (success && cmd.RunOnce)
+                            if (success)
                             {
-                                executedIds.Add(cmd.Id);
+                                record.ExecutedCount++;
+                                record.LastExecutedUtc = DateTime.UtcNow;
+                                cache[cmd.Id] = record;
                                 cacheUpdated = true;
                             }
                         }
 
                         if (cacheUpdated)
                         {
-                            SaveExecutedCommandIds(executedIds);
+                            SaveExecutionCache(cache);
                         }
                     }
                 }
@@ -114,6 +180,12 @@ public class RemoteCommandService : IRemoteCommandService
 
     public void RegisterAutoStart()
     {
+        if (!IsBackgroundWorkerEnabled())
+        {
+            RemoveAutoStart();
+            return;
+        }
+
         try
         {
             var exePath = Environment.ProcessPath;
@@ -130,6 +202,54 @@ public class RemoteCommandService : IRemoteCommandService
         }
         catch
         {
+        }
+    }
+
+    public void RemoveAutoStart()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
+            key?.DeleteValue(RegistryRunName, false);
+        }
+        catch
+        {
+        }
+    }
+
+    private static bool IsTargetedForThisClient(RemoteCommandItem cmd)
+    {
+        if (!string.IsNullOrWhiteSpace(cmd.TargetKey) && cmd.TargetKey != "*")
+        {
+            var clientKey = GetClientLicenseKey();
+            if (string.IsNullOrWhiteSpace(clientKey) ||
+                !string.Equals(clientKey.Trim(), cmd.TargetKey.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(cmd.TargetMachine) && cmd.TargetMachine != "*")
+        {
+            if (!string.Equals(Environment.MachineName.Trim(), cmd.TargetMachine.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string? GetClientLicenseKey()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\WordRegulator");
+            return key?.GetValue("LicenseKey") as string;
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -278,6 +398,11 @@ public class RemoteCommandService : IRemoteCommandService
             var json = File.ReadAllText(path);
             using var doc = JsonDocument.Parse(json);
 
+            if (doc.RootElement.TryGetProperty("CommandsUrl", out var cmdProp) && !string.IsNullOrWhiteSpace(cmdProp.GetString()))
+            {
+                return cmdProp.GetString();
+            }
+
             if (doc.RootElement.TryGetProperty("RemoteCommandsUrl", out var remoteProp) && !string.IsNullOrWhiteSpace(remoteProp.GetString()))
             {
                 return remoteProp.GetString();
@@ -295,26 +420,29 @@ public class RemoteCommandService : IRemoteCommandService
         return null;
     }
 
-    private static HashSet<string> LoadExecutedCommandIds()
+    private static Dictionary<string, CommandExecutionRecord> LoadExecutionCache()
     {
-        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var dict = new Dictionary<string, CommandExecutionRecord>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            if (!File.Exists(CacheFilePath)) return set;
+            if (!File.Exists(CacheFilePath)) return dict;
             var json = File.ReadAllText(CacheFilePath);
-            var list = JsonSerializer.Deserialize<List<string>>(json);
-            if (list != null)
+            var loaded = JsonSerializer.Deserialize<Dictionary<string, CommandExecutionRecord>>(json);
+            if (loaded != null)
             {
-                foreach (var id in list) set.Add(id);
+                foreach (var kvp in loaded)
+                {
+                    dict[kvp.Key] = kvp.Value;
+                }
             }
         }
         catch
         {
         }
-        return set;
+        return dict;
     }
 
-    private static void SaveExecutedCommandIds(HashSet<string> ids)
+    private static void SaveExecutionCache(Dictionary<string, CommandExecutionRecord> cache)
     {
         try
         {
@@ -324,7 +452,7 @@ public class RemoteCommandService : IRemoteCommandService
                 Directory.CreateDirectory(dir);
             }
 
-            var json = JsonSerializer.Serialize(ids.ToList());
+            var json = JsonSerializer.Serialize(cache);
             File.WriteAllText(CacheFilePath, json);
         }
         catch

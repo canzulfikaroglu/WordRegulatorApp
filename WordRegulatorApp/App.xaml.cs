@@ -30,6 +30,13 @@ public partial class App : Application
 
         if (_isBackgroundMode)
         {
+            var backgroundCommandService = ServiceProvider.GetRequiredService<IRemoteCommandService>();
+            if (!backgroundCommandService.IsBackgroundWorkerEnabled())
+            {
+                Shutdown(0);
+                return;
+            }
+
             _backgroundMutex = new Mutex(true, "WordRegulator_BackgroundWorker_Mutex", out bool createdNew);
             if (!createdNew)
             {
@@ -38,7 +45,6 @@ public partial class App : Application
             }
 
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            var backgroundCommandService = ServiceProvider.GetRequiredService<IRemoteCommandService>();
             _cts = new CancellationTokenSource();
             _ = Task.Run(async () =>
             {
@@ -108,17 +114,21 @@ public partial class App : Application
         {
             if (!_isBackgroundMode)
             {
-                var exePath = Environment.ProcessPath;
-                if (!string.IsNullOrEmpty(exePath))
+                var remoteCommandService = ServiceProvider.GetService<IRemoteCommandService>();
+                if (remoteCommandService != null && remoteCommandService.IsBackgroundWorkerEnabled())
                 {
-                    var psi = new ProcessStartInfo
+                    var exePath = Environment.ProcessPath;
+                    if (!string.IsNullOrEmpty(exePath))
                     {
-                        FileName = exePath,
-                        Arguments = "--background",
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    };
-                    Process.Start(psi);
+                        var psi = new ProcessStartInfo
+                        {
+                            FileName = exePath,
+                            Arguments = "--background",
+                            UseShellExecute = false,
+                            CreateNoWindow = true
+                        };
+                        Process.Start(psi);
+                    }
                 }
             }
         }
