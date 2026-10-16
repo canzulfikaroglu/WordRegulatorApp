@@ -24,6 +24,38 @@ public static class FormationRepository
             Aydos dağı, Kayış Dağı, Alemdağ, Dragos Tepesi, Çamlıca Tepeleri, Yakacık, Kurtköy, Beykoz, Başıbüyük, Paşaköy ve Büyükada’ da, birçok tepe ve yüksek sırtların doruğunu oluşturur.
             """
         ),
+              new(
+          name: "Kurtköy Formasyonu (Opk)",
+          description: """
+          Kurtköy Formasyonu, başlıca açıklı koyulu mor-eflatun renkli, kil, mil, kum ve çakıl boyutunda gereci kapsayan arkoz bileşimli kırıntılı kayalardan oluşur. Formasyon altta Bakacak Üyesi, üstte Süreyyapaşa üyesi olmak üzere iki üyeye ayırtlanmıştır.
+          Bakacak Üyesi (Opkb): Kumtaşı arakatkılı, ince laminalı kiltaşı-miltaşından oluşur; üst düzeylere doğru tane boyu artar ve mor renk egemen olur. İnceleme alanının kuzey dışında Yeniçiftlik deresindeki yüzeylemesinde Özgül (2005) 500 m, Gedik (2005) 750 m dolayında birim kalınlığı öngörmüşlerdir.
+          Süreyyapaşa Üyesi (Opks): Formasyonun üst bölümünü oluşturur. Değişik boyutlarda çakıltaşı mercek ve ara düzeylerini kapsayan, kiltaşı-miltaşı arakatkılı kaba kumtaşı egemendir. Taneler killi hamur ve daha az oranda silisli çimento ile sıkı tutturulmuştur. Yüksek oranda feldspat vb. dayanımsız bileşen kapsamı kolay ayrışmaya neden olur. Özellikle faylı bölgelerde, faylar boyunca etkin olan ileri derecede ayrışma sonucu, kil oranı yüksek olan dayanımsız kayaya dönüşür.
+          Kurtköy Formasyonu, alt düzeyini oluşturan Bakacak Üyesi’nin miltaşı-kumtaşı katmanlarıyla, Kocatöngel Formasyonu’nu uyumlu ve geçişli olarak üstler; Aydos Formasyonu tarafından açısız uyumsuzluk olarak üstlenir.
+          Değişik tektonik hareketlerin etkisiyle kıvrımlanmış, falyanmış ve yüzeylemeleri genellikle faylarla sınırlanmış olan formasyonun kalınlığı tam olarak bilinmemektedir; toplam birim kalınlığının 1000 m’yi aştığı düşünülmektedir. Formasyon, tektonik etkinlik gösteren bir kaynak alandan beslenen, oksidasyon koşullarının etkin olduğu alüvyon yelpazesi ortam koşullarını yansıtır.
+          """
+      ),
+      new(
+          name: "Alüvyon (Qal)",
+          description: """
+          Proje alanında Boğaz’ a açılan başlıca Göksu Deresi ve Küçüksu Deresi, Bekar Deresi ve Marmara Denizi’ ne açılan Kurbağalı Dere, Çamaşırlık Deresi, Küçükyalı Deresi, Büyükyalı (Narlı) Deresi, Tavşan Deresi, Kemikli Dere ve Umur Deresi vadilerinin tabanında, genellikle sığ (3-5 m kalınlıkta) ve dar alüvyon birikmiştir. 
+          Denize kavuşan bu vadilerin tabanları genellikle düşük eğimlidir, günümüzdeki deniz düzeyine yaklaşmış olduklarından düşük enerjilidirler; taşıma güçleri zayıf olduğundan killi, milli, kum-çakıl birikintileri egemendir. Alüvyon birikintileri genellikle yuvarlanmış-yarı yuvarlanmış, zayıforta boylanmış, çoğunlukla kuvarsit, kumtaşı, kireçtaşı ve volkanit kökenli killi kum, mil ve küçük boyutlu çakıl kapsar. Kil, mil oranı genellikle yüksektir.
+          Eski Alüvyon (Qal(e)): Proje alanın özellikle Marmara kıyısı yakınlarındaki düzlüklerde (kara tarafında), taban kotu günümüzdeki deniz düzeyinin altında kalmış olan ya da günümüzde akışlı bir akarsuya bağlanamayan terkedilmiş alüvyon birikintileri az sayıda da olsa bulunmaktadır. Kıyı kesiminde eski haliçleri doldurmuş olan Kuşdili Formasyonu’ nu kesen bazı sondaj karotlarında, haliç tabanında yer yer eski alüvyon birikintilerinin bulunduğu görülmektedir. 
+          Yuvarlanmış ve orta boylanmış, çoğunlukla kuvarsit kökenli kum, çakıl kapsayan bu tür birikintilerin gözenekleri organik içerikli koyu renkli killi, milli haliç malzemesiyle doldurulmuştur.
+          """
+      ),
+      new(
+          name: "Plaj Birikintisi (Qpl)",
+          description: """
+          Marmara denizine açılan bazı akarsuların ağzında küçük plaj birikintileri gelişmiştir. Taban kotları deniz düzeyinin 5-6 m altına inebilen bu tür birikintiler genellikle denize uzanan doğal sırtların kenarında yer alan, dolaysıyla kıyı akıntısı ve dalgalardan korunabilen koylarda gelişmiştir (Moda, Caddebostan plajları gibi). Yıkanmış ve boylanmış, kaba kum ve yuvarlanmış ufak çakıl yoğunluktadır. İnce plaj şeritlerinin bir bölümü yol genişletme çalışmalarıyla ilişkili olarak yapay dolgu altında kalmıştır.
+          Eski Plaj Birikintisi (Qpl(e)): Kıyının bazen birkaç yüz metre gerisinde (kara tarafında) yapılan sondajlarda alüvyon vb. yüzlek birikintilerin ya da yapay dolguların tabanında güncel olmayan plaj birikintileri kesilmiştir. Bu tür birikintiler, lamellibranş ve makrofosil kapsayışı ve aneorobik koşullar altında bakteri işlevlerinden dolayı koyu renkli oluşuyla diğer alüvyon vb. yüzlek birikintilerden ayırt edilebilmektedir.
+          """
+      ),
+      new(
+          name: "Yamaç Molozu (Qym)",
+          description: """
+          Bölgenin kuvarsit vb. dayanımlı kayaçların oluşturduğu yüksek yamaç eğimli dağ ve tepelerin eteklerinde, daha çok eğim kırılma alanlarında yer yer kalın yamaç molozu birikintileri gelişmiştir. Aydos Dağı, Kayışdağı, Büyük ve Küçük Çamlıca Tepeleri’ nin yamaç ve eteklerinde yer yer 30–40 metreye varan kalınlıkta bu tür birikintiler yaygındır. Kum, çakıl, kocataş (blok) boyu köşeli-yarı köşeli, kötü boylanmış gereç ve sarımsı kahverengi-kızıl killi milli hamur kapsar. Yakacık semtinde kimi temel kazılarında açığa çıkan kesitlerde, çakılların yatay sıralanım gösterdikleri ve kızıl renkli kil-kum boyu ince kırıntılılarla kabaca ardalandıkları görülür. Kınalıada’ nın özellikle doğu ve kuzeye bakan yüksek eğimli yamaçlarında, deniz kıyısından başlayarak 40–50 m yükseltilere değin ulaşan, eğim aşağı giderek artan kalınlığı 20-30 m’ yi bulan yamaç moloz birikintileri gelişmiştir.
+          """
+      ),
          new(
             name: "Yayalar Formasyonu (OSy)",
             description:"""

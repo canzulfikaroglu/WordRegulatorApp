@@ -1,4 +1,4 @@
-﻿namespace WordRegulator.Domain.Entities;
+namespace WordRegulator.Domain.Entities;
 
 public class Vs30SeriesItem
 {
@@ -16,6 +16,7 @@ public class Vs30SeriesItem
     public string Formula { get; set; } = string.Empty;
     public string FormulaFull { get; set; } = string.Empty;
     public List<Vs30LayerItem> Layers { get; set; } = new();
+    public List<Vs30LayerItem> Layers2 { get; set; } = new();
 
     
     public string XStart  { get; set; } = string.Empty;

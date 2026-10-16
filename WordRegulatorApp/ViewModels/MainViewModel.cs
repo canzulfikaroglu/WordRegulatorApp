@@ -14,6 +14,20 @@ using WordRegulator.Domain.Interfaces;
 
 namespace WordRegulatorApp.ViewModels;
 
+public partial class FormationSelectionViewModel : ObservableObject
+{
+    public FormationDefinition Formation { get; }
+    public string Name => Formation.Name;
+
+    [ObservableProperty]
+    private bool _isSelected;
+
+    public FormationSelectionViewModel(FormationDefinition formation)
+    {
+        Formation = formation;
+    }
+}
+
 public partial class MainViewModel : ObservableObject
 {
     private static readonly CultureInfo TrCulture = new CultureInfo("tr-TR");
@@ -101,26 +115,38 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<MicrotremorMeasurementViewModel> MicrotremorMeasurements { get; } = new();
 
-    
-    public IReadOnlyList<WordRegulator.Domain.Entities.FormationDefinition> FormationList { get; }
-        = WordRegulator.Application.Services.FormationRepository.All;
+    public ObservableCollection<FormationSelectionViewModel> Formations { get; } = new();
 
-    [ObservableProperty]
-    private WordRegulator.Domain.Entities.FormationDefinition? _selectedFormation;
-
-    partial void OnSelectedFormationChanged(WordRegulator.Domain.Entities.FormationDefinition? value)
+    public void UpdateFormationVariables()
     {
-        if (value == null) return;
+        var selected = Formations.Where(f => f.IsSelected).Select(f => f.Formation).ToList();
 
-        
+        // FORMATİONTYPE: only names, comma-separated (for inline use in other parts of report)
         var typeVar = Variables.FirstOrDefault(v => string.Equals(v.Key, "FORMAŞİONTYPE", StringComparison.OrdinalIgnoreCase)
                                                  || string.Equals(v.Key, "FORMATİONTYPE", StringComparison.OrdinalIgnoreCase));
-        if (typeVar != null) { typeVar.Value = value.Name; _userOverriddenKeys.Add(typeVar.Key); }
+        if (typeVar != null)
+        {
+            typeVar.Value = string.Join(", ", selected.Select(f => f.Name));
+            _userOverriddenKeys.Add(typeVar.Key);
+        }
 
-        
+        // FORMATİONTEXT: alternating Name / Description lines per formation
+        // Output: FormationA\nDescriptionA\nFormationB\nDescriptionB
         var textVar = Variables.FirstOrDefault(v => string.Equals(v.Key, "FORMAŞİONTEXT", StringComparison.OrdinalIgnoreCase)
                                                  || string.Equals(v.Key, "FORMATİONTEXT", StringComparison.OrdinalIgnoreCase));
-        if (textVar != null) { textVar.Value = value.Description; _userOverriddenKeys.Add(textVar.Key); }
+        if (textVar != null)
+        {
+            var lines = new System.Text.StringBuilder();
+            for (int i = 0; i < selected.Count; i++)
+            {
+                if (i > 0) lines.Append('\n');
+                lines.Append(selected[i].Name);
+                lines.Append('\n');
+                lines.Append(selected[i].Description.Trim().Replace("\n", " "));
+            }
+            textVar.Value = lines.ToString();
+            _userOverriddenKeys.Add(textVar.Key);
+        }
     }
 
     public ObservableCollection<VariableItemViewModel> Variables { get; } = new();
@@ -180,12 +206,21 @@ public partial class MainViewModel : ObservableObject
         FilteredVariablesView = CollectionViewSource.GetDefaultView(Variables);
         FilteredVariablesView.Filter = FilterVariablesPredicate;
 
+        foreach (var f in WordRegulator.Application.Services.FormationRepository.All)
+        {
+            var vm = new FormationSelectionViewModel(f);
+            vm.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(FormationSelectionViewModel.IsSelected)) UpdateFormationVariables(); };
+            Formations.Add(vm);
+        }
+
         LoadVariables();
         SetupVs30Layers();
         SetupVs30Series();
         SetupDrillingWells();
         SetupMicrotremorMeasurements();
         ScanTemplateDirectory();
+        
+        LoadState();
     }
 
     private void SetupVs30Layers()
@@ -353,6 +388,7 @@ public partial class MainViewModel : ObservableObject
     {
         SetupDrillingWells();
     }
+
 
     partial void OnMicrotremorCountInputChanged(string value)
     {
@@ -939,6 +975,14 @@ public partial class MainViewModel : ObservableObject
                 string formulaFull = seriesReplacements.TryGetValue("VS30_FORMULA_FULL", out var ff) ? ff : "";
                 double h1Val = double.TryParse(seriesReplacements.TryGetValue("VS30_H1", out var h1Str) ? h1Str.Replace(',', '.') : "0", System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedH1) ? parsedH1 : 0.0;
 
+                var seriesDomainLayers2 = series.Layers2.Select(x => new Vs30LayerItem
+                {
+                    LayerNumber = x.LayerNumber,
+                    StartDepth = x.StartDepth,
+                    EndDepth = x.EndDepth,
+                    Velocity = x.Velocity
+                }).ToList();
+
                 domainVs30Series.Add(new Vs30SeriesItem
                 {
                     SeriesNumber = sNum,
@@ -955,6 +999,7 @@ public partial class MainViewModel : ObservableObject
                     Formula = formula,
                     FormulaFull = formulaFull,
                     Layers = seriesDomainLayers,
+                    Layers2 = seriesDomainLayers2,
                     
                     XStart  = series.XStart,
                     YStart  = series.YStart,
@@ -1238,5 +1283,306 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(value)) return 0.0;
         return double.TryParse(value.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0.0;
+    }
+
+    private string GetStateFilePath()
+    {
+        string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        string folder = Path.Combine(appData, "WordRegulator");
+        if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+        return Path.Combine(folder, "app_state.json");
+    }
+
+    public void SaveState()
+    {
+        try
+        {
+            var variablesDict = Variables.ToDictionary(v => v.Key, v => v.Value);
+
+            // Serialize DrillingWells
+            var wellsData = DrillingWells.Select(w => new
+            {
+                WellName = w.WellName,
+                Latitude = w.Latitude,
+                Longitude = w.Longitude,
+                GroundKot = w.GroundKot,
+                BottomKot = w.BottomKot,
+                DepthInput = w.DepthInput,
+                GroundwaterStatus = w.GroundwaterStatus,
+                IsCollapsed = w.IsCollapsed,
+                StartDate = w.StartDate,
+                FinishDate = w.FinishDate,
+                SelectedMeasurementCount = w.SelectedMeasurementCount,
+                HasPressuremeterTest = w.HasPressuremeterTest,
+                Measurements = w.Measurements.Select(m => new
+                {
+                    MeasurementDate = m.MeasurementDate,
+                    WaterDepth = m.WaterDepth,
+                    Day = m.Day
+                }).ToList(),
+                PressuremeterRows = w.PressuremeterRows.Select(r => new
+                {
+                    Depth = r.Depth,
+                    LimitPressure = r.LimitPressure,
+                    NetLimitPressure = r.NetLimitPressure,
+                    ElasticityModulus = r.ElasticityModulus
+                }).ToList()
+            }).ToList();
+
+            // Serialize Vs30 Layers
+            var vs30LayersData = Vs30Layers.Select(l => new
+            {
+                StartDepth = l.StartDepthInput,
+                EndDepth = l.EndDepthInput,
+                Velocity = l.VelocityInput
+            }).ToList();
+
+            // Serialize Vs30 Series
+            var vs30SeriesData = Vs30Series.Select(s => new
+            {
+                KotStart = s.KotStartInput,
+                KotEnd = s.KotEndInput,
+                T0 = s.T0Input,
+                SurfaceVs30 = s.SurfaceVs30Input,
+                XStart = s.XStart,
+                YStart = s.YStart,
+                XFinish = s.XFinish,
+                YFinish = s.YFinish,
+                PoissonLayer1 = s.PoissonLayer1,
+                PoissonLayer2 = s.PoissonLayer2,
+                ShearModulusLayer1 = s.ShearModulusLayer1,
+                ShearModulusLayer2 = s.ShearModulusLayer2,
+                BulkModulusLayer1 = s.BulkModulusLayer1,
+                BulkModulusLayer2 = s.BulkModulusLayer2,
+                ElasticityModulusLayer1 = s.ElasticityModulusLayer1,
+                ElasticityModulusLayer2 = s.ElasticityModulusLayer2,
+                Layers2 = s.Layers2.Select(l2 => new
+                {
+                    StartDepth = l2.StartDepthInput,
+                    EndDepth = l2.EndDepthInput,
+                    Velocity = l2.VelocityInput
+                }).ToList()
+            }).ToList();
+
+            // Serialize Microtremor Measurements
+            var microtremorData = MicrotremorMeasurements.Select(m => new
+            {
+                T0 = m.T0,
+                Ta = m.Ta,
+                Tb = m.Tb,
+                Frequency = m.Frequency,
+                Date = m.Date,
+                HorizontalCoordinate = m.HorizontalCoordinate,
+                VerticalCoordinate = m.VerticalCoordinate
+            }).ToList();
+
+            // Serialize selected formations
+            var selectedFormations = Formations.Where(f => f.IsSelected).Select(f => f.Name).ToList();
+
+            var state = new
+            {
+                Variables = variablesDict,
+                BaseTopLevelInput = this.BaseTopLevelInput,
+                DfInput = this.DfInput,
+                DrillingWellCountInput = this.DrillingWellCountInput,
+                Vs30SeriesCountInput = this.Vs30SeriesCountInput,
+                MicrotremorCountInput = this.MicrotremorCountInput,
+                SelectedVs30LayerCount = this.SelectedVs30LayerCount,
+                OutputFolderTitle = this.OutputFolderTitle,
+                OutputDirectoryPath = this.OutputDirectoryPath,
+                DrillingWells = wellsData,
+                Vs30Layers = vs30LayersData,
+                Vs30Series = vs30SeriesData,
+                MicrotremorMeasurements = microtremorData,
+                SelectedFormations = selectedFormations
+            };
+
+            string json = System.Text.Json.JsonSerializer.Serialize(state,
+                new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
+            File.WriteAllText(GetStateFilePath(), json);
+        }
+        catch { }
+    }
+
+    public void LoadState()
+    {
+        try
+        {
+            string path = GetStateFilePath();
+            if (!File.Exists(path)) return;
+
+            string json = File.ReadAllText(path);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var state = doc.RootElement;
+
+            // --- Scalar settings ---
+            if (state.TryGetProperty("BaseTopLevelInput", out var b)) BaseTopLevelInput = b.GetString() ?? BaseTopLevelInput;
+            if (state.TryGetProperty("DfInput", out var d)) DfInput = d.GetString() ?? DfInput;
+            if (state.TryGetProperty("OutputFolderTitle", out var ot)) OutputFolderTitle = ot.GetString() ?? OutputFolderTitle;
+            if (state.TryGetProperty("OutputDirectoryPath", out var odp))
+            {
+                var savedPath = odp.GetString();
+                if (!string.IsNullOrWhiteSpace(savedPath)) OutputDirectoryPath = savedPath;
+            }
+            if (state.TryGetProperty("SelectedVs30LayerCount", out var sl)) SelectedVs30LayerCount = sl.GetInt32();
+
+            // --- Counts (must come before restoring per-item data) ---
+            if (state.TryGetProperty("DrillingWellCountInput", out var dc)) DrillingWellCountInput = dc.GetString() ?? DrillingWellCountInput;
+            if (state.TryGetProperty("Vs30SeriesCountInput", out var vc)) Vs30SeriesCountInput = vc.GetString() ?? Vs30SeriesCountInput;
+            if (state.TryGetProperty("MicrotremorCountInput", out var mc)) MicrotremorCountInput = mc.GetString() ?? MicrotremorCountInput;
+
+            // --- Vs30 Layers ---
+            if (state.TryGetProperty("Vs30Layers", out var layersEl) && layersEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                var layerArr = layersEl.EnumerateArray().ToList();
+                for (int i = 0; i < Math.Min(layerArr.Count, Vs30Layers.Count); i++)
+                {
+                    var el = layerArr[i];
+                    var layer = Vs30Layers[i];
+                    if (el.TryGetProperty("StartDepth", out var sd)) layer.StartDepthInput = sd.GetString() ?? layer.StartDepthInput;
+                    if (el.TryGetProperty("EndDepth", out var ed)) layer.EndDepthInput = ed.GetString() ?? layer.EndDepthInput;
+                    if (el.TryGetProperty("Velocity", out var vel)) layer.VelocityInput = vel.GetString() ?? layer.VelocityInput;
+                }
+            }
+
+            // --- Vs30 Series ---
+            if (state.TryGetProperty("Vs30Series", out var seriesEl) && seriesEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                var seriesArr = seriesEl.EnumerateArray().ToList();
+                for (int i = 0; i < Math.Min(seriesArr.Count, Vs30Series.Count); i++)
+                {
+                    var el = seriesArr[i];
+                    var s = Vs30Series[i];
+                    if (el.TryGetProperty("KotStart", out var ks)) s.KotStartInput = ks.GetString() ?? s.KotStartInput;
+                    if (el.TryGetProperty("KotEnd", out var ke)) s.KotEndInput = ke.GetString() ?? s.KotEndInput;
+                    if (el.TryGetProperty("T0", out var t0)) s.T0Input = t0.GetString() ?? s.T0Input;
+                    if (el.TryGetProperty("SurfaceVs30", out var sv)) s.SurfaceVs30Input = sv.GetString() ?? s.SurfaceVs30Input;
+                    if (el.TryGetProperty("XStart", out var xs)) s.XStart = xs.GetString() ?? s.XStart;
+                    if (el.TryGetProperty("YStart", out var ys)) s.YStart = ys.GetString() ?? s.YStart;
+                    if (el.TryGetProperty("XFinish", out var xf)) s.XFinish = xf.GetString() ?? s.XFinish;
+                    if (el.TryGetProperty("YFinish", out var yf)) s.YFinish = yf.GetString() ?? s.YFinish;
+                    if (el.TryGetProperty("PoissonLayer1", out var pl1)) s.PoissonLayer1 = pl1.GetString() ?? s.PoissonLayer1;
+                    if (el.TryGetProperty("PoissonLayer2", out var pl2)) s.PoissonLayer2 = pl2.GetString() ?? s.PoissonLayer2;
+                    if (el.TryGetProperty("ShearModulusLayer1", out var sh1)) s.ShearModulusLayer1 = sh1.GetString() ?? s.ShearModulusLayer1;
+                    if (el.TryGetProperty("ShearModulusLayer2", out var sh2)) s.ShearModulusLayer2 = sh2.GetString() ?? s.ShearModulusLayer2;
+                    if (el.TryGetProperty("BulkModulusLayer1", out var bk1)) s.BulkModulusLayer1 = bk1.GetString() ?? s.BulkModulusLayer1;
+                    if (el.TryGetProperty("BulkModulusLayer2", out var bk2)) s.BulkModulusLayer2 = bk2.GetString() ?? s.BulkModulusLayer2;
+                    if (el.TryGetProperty("ElasticityModulusLayer1", out var em1)) s.ElasticityModulusLayer1 = em1.GetString() ?? s.ElasticityModulusLayer1;
+                    if (el.TryGetProperty("ElasticityModulusLayer2", out var em2)) s.ElasticityModulusLayer2 = em2.GetString() ?? s.ElasticityModulusLayer2;
+                    // Layers2
+                    if (el.TryGetProperty("Layers2", out var l2El) && l2El.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    {
+                        var l2Arr = l2El.EnumerateArray().ToList();
+                        for (int j = 0; j < Math.Min(l2Arr.Count, s.Layers2.Count); j++)
+                        {
+                            var l2 = s.Layers2[j];
+                            if (l2Arr[j].TryGetProperty("StartDepth", out var l2sd)) l2.StartDepthInput = l2sd.GetString() ?? l2.StartDepthInput;
+                            if (l2Arr[j].TryGetProperty("EndDepth", out var l2ed)) l2.EndDepthInput = l2ed.GetString() ?? l2.EndDepthInput;
+                            if (l2Arr[j].TryGetProperty("Velocity", out var l2v)) l2.VelocityInput = l2v.GetString() ?? l2.VelocityInput;
+                        }
+                    }
+                }
+            }
+
+            // --- Drilling Wells ---
+            if (state.TryGetProperty("DrillingWells", out var wellsEl) && wellsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                var wellArr = wellsEl.EnumerateArray().ToList();
+                for (int i = 0; i < Math.Min(wellArr.Count, DrillingWells.Count); i++)
+                {
+                    var el = wellArr[i];
+                    var w = DrillingWells[i];
+                    if (el.TryGetProperty("WellName", out var wn)) w.WellName = wn.GetString() ?? w.WellName;
+                    if (el.TryGetProperty("Latitude", out var lat)) w.Latitude = lat.GetString() ?? w.Latitude;
+                    if (el.TryGetProperty("Longitude", out var lon)) w.Longitude = lon.GetString() ?? w.Longitude;
+                    if (el.TryGetProperty("GroundKot", out var gk)) w.GroundKot = gk.GetString() ?? w.GroundKot;
+                    if (el.TryGetProperty("BottomKot", out var bk)) w.BottomKot = bk.GetString() ?? w.BottomKot;
+                    if (el.TryGetProperty("DepthInput", out var dep)) w.DepthInput = dep.GetString() ?? w.DepthInput;
+                    if (el.TryGetProperty("GroundwaterStatus", out var gws)) w.GroundwaterStatus = gws.GetString() ?? w.GroundwaterStatus;
+                    if (el.TryGetProperty("IsCollapsed", out var ic)) w.IsCollapsed = ic.GetBoolean();
+                    if (el.TryGetProperty("StartDate", out var sd2)) w.StartDate = sd2.GetString() ?? w.StartDate;
+                    if (el.TryGetProperty("FinishDate", out var fd)) w.FinishDate = fd.GetString() ?? w.FinishDate;
+                    if (el.TryGetProperty("SelectedMeasurementCount", out var smc)) w.SelectedMeasurementCount = smc.GetInt32();
+                    if (el.TryGetProperty("HasPressuremeterTest", out var hpt)) w.HasPressuremeterTest = hpt.GetBoolean();
+                    // Measurements
+                    if (el.TryGetProperty("Measurements", out var measEl) && measEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    {
+                        var measArr = measEl.EnumerateArray().ToList();
+                        for (int j = 0; j < Math.Min(measArr.Count, w.Measurements.Count); j++)
+                        {
+                            var m = w.Measurements[j];
+                            if (measArr[j].TryGetProperty("MeasurementDate", out var md)) m.MeasurementDate = md.GetString() ?? m.MeasurementDate;
+                            if (measArr[j].TryGetProperty("WaterDepth", out var wd)) m.WaterDepth = wd.GetString() ?? m.WaterDepth;
+                            if (measArr[j].TryGetProperty("Day", out var dy)) m.Day = dy.GetString() ?? m.Day;
+                        }
+                    }
+                    // Pressurometer Rows
+                    if (el.TryGetProperty("PressuremeterRows", out var pmEl) && pmEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    {
+                        var pmArr = pmEl.EnumerateArray().ToList();
+                        // Add missing rows
+                        while (w.PressuremeterRows.Count < pmArr.Count)
+                            w.AddPressuremeterRowCommand.Execute(null);
+                        for (int j = 0; j < Math.Min(pmArr.Count, w.PressuremeterRows.Count); j++)
+                        {
+                            var r = w.PressuremeterRows[j];
+                            if (pmArr[j].TryGetProperty("Depth", out var pmd)) r.Depth = pmd.GetString() ?? r.Depth;
+                            if (pmArr[j].TryGetProperty("LimitPressure", out var pml)) r.LimitPressure = pml.GetString() ?? r.LimitPressure;
+                            if (pmArr[j].TryGetProperty("NetLimitPressure", out var pmn)) r.NetLimitPressure = pmn.GetString() ?? r.NetLimitPressure;
+                            if (pmArr[j].TryGetProperty("ElasticityModulus", out var pme)) r.ElasticityModulus = pme.GetString() ?? r.ElasticityModulus;
+                        }
+                    }
+                }
+            }
+
+            // --- Microtremor Measurements ---
+            if (state.TryGetProperty("MicrotremorMeasurements", out var mtEl) && mtEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                var mtArr = mtEl.EnumerateArray().ToList();
+                for (int i = 0; i < Math.Min(mtArr.Count, MicrotremorMeasurements.Count); i++)
+                {
+                    var el = mtArr[i];
+                    var m = MicrotremorMeasurements[i];
+                    if (el.TryGetProperty("T0", out var t0)) m.T0 = t0.GetString() ?? m.T0;
+                    if (el.TryGetProperty("Ta", out var ta)) m.Ta = ta.GetString() ?? m.Ta;
+                    if (el.TryGetProperty("Tb", out var tb)) m.Tb = tb.GetString() ?? m.Tb;
+                    if (el.TryGetProperty("Frequency", out var freq)) m.Frequency = freq.GetString() ?? m.Frequency;
+                    if (el.TryGetProperty("Date", out var dt)) m.Date = dt.GetString() ?? m.Date;
+                    if (el.TryGetProperty("HorizontalCoordinate", out var hc)) m.HorizontalCoordinate = hc.GetString() ?? m.HorizontalCoordinate;
+                    if (el.TryGetProperty("VerticalCoordinate", out var vc2)) m.VerticalCoordinate = vc2.GetString() ?? m.VerticalCoordinate;
+                }
+            }
+
+            // --- Formation Selections ---
+            if (state.TryGetProperty("SelectedFormations", out var sfEl) && sfEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                var selectedNames = sfEl.EnumerateArray()
+                    .Select(e => e.GetString() ?? string.Empty)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                foreach (var f in Formations)
+                {
+                    f.IsSelected = selectedNames.Contains(f.Name);
+                }
+            }
+
+            // --- Variables (overrides) ---
+            if (state.TryGetProperty("Variables", out var dictEl))
+            {
+                foreach (var prop in dictEl.EnumerateObject())
+                {
+                    var v = Variables.FirstOrDefault(x => x.Key == prop.Name);
+                    if (v != null)
+                    {
+                        v.Value = prop.Value.GetString() ?? "";
+                        _userOverriddenKeys.Add(prop.Name);
+                    }
+                }
+            }
+
+            RecalculateDependencies();
+            RecalculateAllSeries();
+            RecalculateDrillingWellsSummary();
+        }
+        catch { }
     }
 }

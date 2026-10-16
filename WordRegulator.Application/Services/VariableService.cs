@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using WordRegulator.Application.Interfaces;
 using WordRegulator.Domain.Entities;
 using WordRegulator.Domain.Enums;
@@ -48,7 +48,7 @@ public class VariableService : IVariableService
             new("S1", "S1 İvme Katsayısı", "S1 ivme parametresi", VariableCategory.Rapor, VariableType.Independent, "", order: 30),
             new("PGA", "PGA Değeri", "PGA yer ivmesi", VariableCategory.Rapor, VariableType.Independent, "", order: 31),
             new("PGV", "PGV Değeri", "PGV yer hızı", VariableCategory.Rapor, VariableType.Independent, "", order: 32),
-            new("LİTHOLOGİCALARRANGEMENT", "Zemin Birimi", "Zemin birimi yapısı (örn: kumtaşı kiltaşı ardalanması)", VariableCategory.Rapor, VariableType.Independent, "kumtaşı kiltaşı ardalanması", order: 33),
+            new("LİTHOL", "Zemin Birimi", "Zemin birimi yapısı (örn: kumtaşı kiltaşı ardalanması)", VariableCategory.Rapor, VariableType.Independent, "kumtaşı kiltaşı ardalanması", order: 33),
             new("SDS", "SDS Katsayısı", "Tasarım ivme katsayısı SDS", VariableCategory.Rapor, VariableType.Independent, "", order: 34),
             new("SD1", "SD1 Katsayısı", "Tasarım ivme katsayısı SD1", VariableCategory.Rapor, VariableType.Independent, "", order: 35),
             new("SEATİNGAREA", "Oturum Alanı (m²)", "Oturum alanı (m²)", VariableCategory.Rapor, VariableType.Independent, "250", order: 36),
@@ -97,30 +97,24 @@ public class VariableService : IVariableService
         for (int i = 0; i < layerList.Count; i++)
         {
             var layer = layerList[i];
-            double h_i = 0;
+            double h_i;
 
-            if (i == 0)
+            if (i < layerList.Count - 1)
             {
-                
-                h_i = Math.Max(0, layer.EndDepth - df);
-            }
-            else if (i < layerList.Count - 1)
-            {
-                
-                h_i = Math.Max(0, layer.EndDepth - layerList[i - 1].EndDepth);
+                // effectiveStart: if Df falls within this layer, start from Df; otherwise use layer's own start
+                double effectiveStart = Math.Max(df, layer.StartDepth);
+                h_i = Math.Max(0, layer.EndDepth - effectiveStart);
             }
             else
             {
-                
+                // Last layer fills up to 30 m from whatever was already accumulated
                 h_i = Math.Max(0, 30.0 - sumThickness);
             }
 
             sumThickness += h_i;
 
-            if (layer.Velocity > 0)
-            {
+            if (layer.Velocity > 0 && h_i > 0)
                 sumTime += (h_i / layer.Velocity);
-            }
         }
 
         if (sumTime <= 0) return "0 m/s";
@@ -253,6 +247,15 @@ public class VariableService : IVariableService
             replacements[$"SK{idx}_PM_ZEMIN_KOTU"] = w.GroundKot;
             replacements[$"SK{idx}_PM_COUNT"] = w.PressuremeterRows.Count.ToString();
         }
+
+        var photoParts = new List<string>();
+        for (int i = 0; i < wellList.Count; i++)
+        {
+            var w = wellList[i];
+            int idx = i + 1;
+            photoParts.Add($"Fotoğraf {idx}: {w.WellName} Sandık Fotoğrafı");
+        }
+        replacements["SANDIK_FOTOGRAFLARI"] = string.Join("\n", photoParts);
         
         var pmWells = wellList.Where(w => w.HasPressuremeterTest).Select(w => w.WellName).ToList();
         if (pmWells.Count > 1)
@@ -283,12 +286,14 @@ public class VariableService : IVariableService
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var layerList = layers.OrderBy(l => l.LayerNumber).ToList();
 
-        
         result["VS30_DF"] = df.ToString("F2", TrCulture);
 
         double sumThickness = 0;
         double sumTime = 0;
         var formulaParts = new List<string>();
+
+        // h1 = thickness of the first layer that is actually included (h > 0)
+        double h1Value = -1;
 
         for (int i = 0; i < layerList.Count; i++)
         {
@@ -296,42 +301,50 @@ public class VariableService : IVariableService
             int num = i + 1;
             double h_i;
 
-            if (i == 0)
-                h_i = Math.Max(0, layer.EndDepth - df);
-            else if (i < layerList.Count - 1)
-                h_i = Math.Max(0, layer.EndDepth - layerList[i - 1].EndDepth);
+            if (i < layerList.Count - 1)
+            {
+                // effectiveStart: if Df falls within this layer, start from Df; otherwise use layer's own start
+                double effectiveStart = Math.Max(df, layer.StartDepth);
+                h_i = Math.Max(0, layer.EndDepth - effectiveStart);
+            }
             else
+            {
+                // Last layer fills up to 30 m
                 h_i = Math.Max(0, 30.0 - sumThickness);
+            }
 
             sumThickness += h_i;
-            if (layer.Velocity > 0)
+            if (layer.Velocity > 0 && h_i > 0)
                 sumTime += (h_i / layer.Velocity);
 
-            
             string startStr = layer.StartDepth.ToString("F2", TrCulture);
-            string endStr = layer.EndDepth.ToString("F2", TrCulture);
-            string vsStr = layer.Velocity.ToString("F0", TrCulture);
-            string hStr = h_i.ToString("F2", TrCulture);
+            string endStr   = layer.EndDepth.ToString("F2", TrCulture);
+            string vsStr    = layer.Velocity.ToString("F0", TrCulture);
+            string hStr     = h_i.ToString("F2", TrCulture);
 
             result[$"VS30_START{num}"] = startStr;
-            result[$"VS30_END{num}"] = endStr;
+            result[$"VS30_END{num}"]   = endStr;
             result[$"VS30_RANGE{num}"] = $"{startStr} - {endStr}";
-            result[$"VS30_H{num}"] = hStr;
-            result[$"VS30_VS{num}"] = vsStr;
+            result[$"VS30_H{num}"]     = hStr;
+            result[$"VS30_VS{num}"]    = vsStr;
 
-            
-            formulaParts.Add($"({hStr}/{vsStr})");
+            // Only add to formula if this layer contributes (h > 0)
+            if (h_i > 0)
+            {
+                formulaParts.Add($"({hStr}/{vsStr})");
+                if (h1Value < 0) h1Value = h_i; // record first included layer's h
+            }
         }
 
-        
+        // VS30_H1 = h of the first included (non-zero) layer, used for SERIES_H1 display
+        result["VS30_H1"] = (h1Value >= 0 ? h1Value : 0).ToString("F2", TrCulture);
+
         string formulaBody = string.Join("+", formulaParts);
         result["VS30_FORMULA"] = $"30/[{formulaBody}]";
 
-        
         double vs30Val = sumTime > 0 ? 30.0 / sumTime : 0;
         string vs30Str = $"{Math.Round(vs30Val)} m/s";
 
-        
         result["VS30_FORMULA_FULL"] = $"Vs30 = 30/[{formulaBody}] = {vs30Str}";
 
         return result;

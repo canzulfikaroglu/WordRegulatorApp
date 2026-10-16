@@ -411,6 +411,58 @@
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
+
+                                            <!-- İkinci Tabaka Seti (Vs Ort. Tablosu için - LAYER_VSUR) -->
+                                            <Border Margin="0,10,0,0" Background="#0A1A1A" CornerRadius="8" Padding="10,8" BorderBrush="#0D9488" BorderThickness="1">
+                                                <StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                        <TextBlock Text="📊 " FontSize="12"/>
+                                                        <TextBlock Text="Vs Ortalama Tablosu İçin Tabaka Seti 2" FontSize="11" FontWeight="Bold" Foreground="#14B8A6"/>
+                                                        <TextBlock Text=" ({{LAYER_VSUR}} → 2. tablo)" FontSize="10" Foreground="#5EEAD4" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                                        <StackPanel Orientation="Horizontal" Margin="16,0,0,0">
+                                                            <TextBlock Text="Tabaka Sayısı:" FontSize="10" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                            <ComboBox ItemsSource="{Binding LayerCountOptions2}" SelectedItem="{Binding SelectedLayerCount2}" Width="55" Height="22" FontSize="10"/>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                    <ItemsControl ItemsSource="{Binding Layers2}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel Orientation="Horizontal"/>
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate DataType="{x:Type vm:Vs30LayerViewModel}">
+                                                                <Border Width="225" Margin="0,0,10,6" CornerRadius="8" Padding="10,8" BorderThickness="1" Background="#0F2020" BorderBrush="#0D9488">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="{Binding LayerName}" FontWeight="Bold" FontSize="11" Foreground="#14B8A6" Margin="0,0,0,5"/>
+                                                                        <Grid>
+                                                                            <Grid.ColumnDefinitions>
+                                                                                <ColumnDefinition Width="*"/>
+                                                                                <ColumnDefinition Width="4"/>
+                                                                                <ColumnDefinition Width="*"/>
+                                                                                <ColumnDefinition Width="4"/>
+                                                                                <ColumnDefinition Width="*"/>
+                                                                            </Grid.ColumnDefinitions>
+                                                                            <StackPanel Grid.Column="0">
+                                                                                <TextBlock Text="Alt (m):" FontSize="9" Foreground="#94A3B8"/>
+                                                                                <TextBox Text="{Binding StartDepthInput, UpdateSourceTrigger=PropertyChanged}" Height="26" Padding="4,2" FontSize="11" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                                            </StackPanel>
+                                                                            <StackPanel Grid.Column="2">
+                                                                                <TextBlock Text="Üst (m):" FontSize="9" Foreground="#94A3B8"/>
+                                                                                <TextBox Text="{Binding EndDepthInput, UpdateSourceTrigger=PropertyChanged}" Height="26" Padding="4,2" FontSize="11" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                                            </StackPanel>
+                                                                            <StackPanel Grid.Column="4">
+                                                                                <TextBlock Text="Vs (m/s):" FontSize="9" Foreground="#5EEAD4" FontWeight="Bold"/>
+                                                                                <TextBox Text="{Binding VelocityInput, UpdateSourceTrigger=PropertyChanged}" Height="26" Padding="4,2" FontSize="11" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                                            </StackPanel>
+                                                                        </Grid>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
@@ -870,20 +922,29 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
-                            <Border Background="#14B8A6" CornerRadius="6" Width="28" Height="28" Margin="0,0,10,0">
-                                <TextBlock Text="🌍" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <TextBlock Text="Formasyon Tipi:" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Top" Margin="0,0,16,0">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <Border Background="#14B8A6" CornerRadius="6" Width="28" Height="28" Margin="0,0,10,0">
+                                    <TextBlock Text="🌍" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Text="Formasyon Tipi:" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Text="Birden fazla seçebilirsiniz. Seçimleriniz {{FORMATİONTYPE}} ve {{FORMATİONTEXT}} değişkenlerine otomatik yansır." FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" MaxWidth="250" TextWrapping="Wrap"/>
                         </StackPanel>
                         
-                        <ComboBox Grid.Column="1" 
-                                  ItemsSource="{Binding FormationList}" 
-                                  SelectedItem="{Binding SelectedFormation}"
-                                  DisplayMemberPath="Name"
-                                  Height="32" 
-                                  VerticalContentAlignment="Center"
-                                  ToolTip="Formasyon tipini seçtiğinizde rapordaki {{FORMATİONTYPE}} ve {{FORMATİONTEXT}} değişkenleri otomatik olarak dolacaktır."/>
+                        <ItemsControl Grid.Column="1" ItemsSource="{Binding Formations}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" 
+                                              Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,16,8" Cursor="Hand"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </Grid>
                 </Border>
 

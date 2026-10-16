@@ -1,4 +1,4 @@
-﻿
+
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace WordRegulatorApp.ViewModels;
@@ -32,7 +32,7 @@ public partial class Vs30LayerViewModel : ObservableObject
         LayerNumber = layerNumber;
         _startDepthInput = defaultStartDepth.ToString("F2");
         _endDepthInput = defaultEndDepth.ToString("F2");
-        _velocityInput = defaultVelocity.ToString("F2");
+        _velocityInput = ((int)Math.Round(defaultVelocity)).ToString();
     }
 
     partial void OnStartDepthInputChanged(string value)

@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using WordRegulator.Domain.Entities;
@@ -213,7 +213,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                         {
                             var m = measurements[j];
                             var newRow = (TableRow)row.CloneNode(true);
-                            var wellReplacements = GetWellReplacementsDictionary(w, m);
+                            var wellReplacements = GetWellReplacementsDictionary(w, m, i + 1);
 
                             totalReplacements += ProcessElementContainers(newRow, wellReplacements, replacedKeys);
                             table.InsertBefore(newRow, row);
@@ -223,7 +223,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                     {
                         
                         var newRow = (TableRow)row.CloneNode(true);
-                        var wellReplacements = GetWellReplacementsDictionary(w);
+                        var wellReplacements = GetWellReplacementsDictionary(w, null, i + 1);
 
                         totalReplacements += ProcessElementContainers(newRow, wellReplacements, replacedKeys);
                         table.InsertBefore(newRow, row);
@@ -289,7 +289,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             for (int i = 0; i < wellList.Count; i++)
             {
                 var w = wellList[i];
-                var wellReplacements = GetWellReplacementsDictionary(w);
+                var wellReplacements = GetWellReplacementsDictionary(w, null, i + 1);
 
                 foreach (var pInBlock in block)
                 {
@@ -366,32 +366,49 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
 
                 if (templateDataRow != null)
                 {
-                    
-                    
                     bool isHTable = templateDataRow.InnerText.Contains("{{H}}");
+                    bool isVsurTable = !isHTable && templateDataRow.InnerText.Contains("{{LAYER_VSUR}}");
 
                     if (isHTable)
                     {
-                        
+                        // First table: {{H}} / {{LAYER_VS}} / {{SERIES_RESULT}} — uses Layers with Vs30 h-calc
                         double sumThickness = 0;
                         bool firstValidInserted = false;
+                        var insertedHRows = new List<TableRow>();
+
+                        // Identify which column index contains the Vs30 result before cloning
+                        int vs30ColIndex = -1;
+                        var tplCells = templateDataRow.Elements<TableCell>().ToList();
+                        for (int ci = 0; ci < tplCells.Count; ci++)
+                        {
+                            string ct = tplCells[ci].InnerText;
+                            if (ct.Contains("{{SERIES_RESULT") || ct.Contains("{{SERIES_VS30") || ct.Contains("{{SERIES_A"))
+                            {
+                                vs30ColIndex = ci;
+                                break;
+                            }
+                        }
 
                         for (int j = 0; j < s.Layers.Count; j++)
                         {
                             var l = s.Layers[j];
                             double h_i;
 
-                            if (j == 0)
-                                h_i = Math.Max(0, l.EndDepth - s.Df);
-                            else if (j < s.Layers.Count - 1)
-                                h_i = Math.Max(0, l.EndDepth - s.Layers[j - 1].EndDepth);
+                            if (j < s.Layers.Count - 1)
+                            {
+                                // effectiveStart: if Df falls within this layer, start from Df; otherwise layer's own start
+                                double effectiveStart = Math.Max(s.Df, l.StartDepth);
+                                h_i = Math.Max(0, l.EndDepth - effectiveStart);
+                            }
                             else
+                            {
                                 h_i = Math.Max(0, 30.0 - sumThickness);
+                            }
 
                             sumThickness += h_i;
 
-                            
-                            if (j == 0 && h_i <= 0) continue;
+                            // Skip layers that contribute nothing
+                            if (h_i <= 0) continue;
 
                             bool isFirstRow = !firstValidInserted;
                             firstValidInserted = true;
@@ -400,12 +417,29 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                             var layerReplacements = GetSeriesReplacementsDictionary(s, l, h_i, isFirstRow);
                             totalReplacements += ProcessElementContainers(newRow, layerReplacements, replacedKeys);
                             clonedTable.InsertBefore(newRow, templateDataRow);
+                            insertedHRows.Add(newRow);
+                        }
+
+                        // Apply vertical merge on the Vs30 column so the value spans all rows
+                        if (vs30ColIndex >= 0 && insertedHRows.Count > 1)
+                            ApplyVerticalMerge(insertedHRows, vs30ColIndex);
+                    }
+                    else if (isVsurTable)
+                    {
+                        // Second table: {{LAYER_RANGE}} / {{LAYER_VSUR}} — uses Layers2
+                        var layers2 = s.Layers2.Count > 0 ? s.Layers2 : s.Layers;
+                        for (int j = 0; j < layers2.Count; j++)
+                        {
+                            var l = layers2[j];
+                            var newRow = (TableRow)templateDataRow.CloneNode(true);
+                            var layerReplacements = GetSeriesReplacementsDictionary(s, l, 0, false);
+                            totalReplacements += ProcessElementContainers(newRow, layerReplacements, replacedKeys);
+                            clonedTable.InsertBefore(newRow, templateDataRow);
                         }
                     }
                     else
                     {
-                        
-                        
+                        // Generic LAYER_ table — uses Layers
                         for (int j = 0; j < s.Layers.Count; j++)
                         {
                             var l = s.Layers[j];
@@ -636,6 +670,59 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         }
 
         return totalReplacements;
+    }
+
+    /// <summary>
+    /// Applies OpenXML vertical cell merge to a specific column across a list of rows.
+    /// The first row gets VerticalMerge(Restart) and its content is vertically centered.
+    /// Subsequent rows get VerticalMerge() (Continue) — their content is hidden by the merge.
+    /// </summary>
+    private static void ApplyVerticalMerge(List<TableRow> rows, int colIndex)
+    {
+        for (int r = 0; r < rows.Count; r++)
+        {
+            var cells = rows[r].Elements<TableCell>().ToList();
+            if (colIndex >= cells.Count) continue;
+
+            var cell = cells[colIndex];
+
+            // Ensure TableCellProperties exists
+            var tcp = cell.GetFirstChild<TableCellProperties>();
+            if (tcp == null)
+            {
+                tcp = new TableCellProperties();
+                cell.PrependChild(tcp);
+            }
+
+            // Remove any existing VerticalMerge
+            foreach (var vm in tcp.Elements<VerticalMerge>().ToList())
+                vm.Remove();
+
+            if (r == 0)
+            {
+                // First row: restart the merge span, content is kept
+                tcp.AppendChild(new VerticalMerge { Val = MergedCellValues.Restart });
+
+                // Vertically center the content in the merged cell
+                var vAlign = tcp.GetFirstChild<TableCellVerticalAlignment>();
+                if (vAlign == null)
+                    tcp.AppendChild(new TableCellVerticalAlignment { Val = TableVerticalAlignmentValues.Center });
+                else
+                    vAlign.Val = TableVerticalAlignmentValues.Center;
+            }
+            else
+            {
+                // Subsequent rows: continue the merge (content is suppressed by Word)
+                tcp.AppendChild(new VerticalMerge());
+
+                // Clear paragraph content so Word doesn't show stale text in merged cells
+                foreach (var para in cell.Elements<Paragraph>())
+                {
+                    foreach (var run in para.Elements<Run>().ToList())
+                        run.Remove();
+                }
+            }
+        }
     }
 
         private static void ReplaceLiteralHeaders(Table table, int num1, int num2, bool hasS2)
@@ -1039,6 +1126,8 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             dict["TABAKA_VS"] = vsStr;
             dict["LAYER_VELOCITY"] = vsStr;
             dict["TABAKA_HIZ"] = vsStr;
+            // LAYER_VSUR is an alias used in the second (Vs Ortalama) table
+            dict["LAYER_VSUR"] = vsStr;
 
             
             dict["H"] = hStr;
@@ -1060,7 +1149,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         return dict;
     }
 
-    private Dictionary<string, string> GetWellReplacementsDictionary(DrillingWellItem w, GroundwaterMeasurementItem? m = null)
+    private Dictionary<string, string> GetWellReplacementsDictionary(DrillingWellItem w, GroundwaterMeasurementItem? m = null, int index = 0)
     {
         var targetMeasurement = m ?? w.Measurements.FirstOrDefault();
         string measureDate = targetMeasurement != null ? targetMeasurement.MeasurementDate : "";
@@ -1068,6 +1157,8 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
 
         return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
+            ["WELL_INDEX"] = index > 0 ? index.ToString() : "",
+            ["SONDAJ_SIRASI"] = index > 0 ? index.ToString() : "",
             ["WELL_NO"] = w.WellName,
             ["WELL_NAME"] = w.WellName,
             ["SONDAJ_NO"] = w.WellName,
@@ -1131,92 +1222,111 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         return count;
     }
 
+    /// <summary>
+    /// Ensures the given RunProperties explicitly specify Times New Roman 12pt (24 half-points).
+    /// This prevents Word from inheriting a different paragraph style when new runs are inserted.
+    /// </summary>
+    private static void EnsureFontSize12(RunProperties rpr)
+    {
+        // Font size: 24 half-points = 12pt
+        var sz = rpr.GetFirstChild<FontSize>();
+        if (sz == null)
+        {
+            sz = new FontSize();
+            rpr.AppendChild(sz);
+        }
+        sz.Val = "24";
+
+        var szCs = rpr.GetFirstChild<FontSizeComplexScript>();
+        if (szCs == null)
+        {
+            szCs = new FontSizeComplexScript();
+            rpr.AppendChild(szCs);
+        }
+        szCs.Val = "24";
+
+        // Font family: Times New Roman
+        var fonts = rpr.GetFirstChild<RunFonts>();
+        if (fonts == null)
+        {
+            fonts = new RunFonts();
+            rpr.AppendChild(fonts);
+        }
+        fonts.Ascii = "Times New Roman";
+        fonts.HighAnsi = "Times New Roman";
+        fonts.ComplexScript = "Times New Roman";
+    }
+
     private int ReplaceInParagraph(
         Paragraph paragraph,
         IDictionary<string, string> variableReplacements,
         HashSet<string> replacedKeys)
     {
-        var fullText = paragraph.InnerText;
-        if (string.IsNullOrEmpty(fullText) || !fullText.Contains("{{")) return 0;
-
-        var matches = PlaceholderRegex.Matches(fullText);
-        if (matches.Count == 0) return 0;
-
-        var texts = paragraph.Descendants<Text>().ToList();
-        if (texts.Count == 0) return 0;
-
         int totalReplacements = 0;
-        string updatedFullText = fullText;
 
-        foreach (Match match in matches)
+        foreach (var textNode in paragraph.Descendants<Text>().ToList())
         {
-            var keyName = match.Groups[1].Value;
-            if (TryGetReplacementValue(variableReplacements, keyName, out var replacementValue))
+            var text = textNode.Text;
+            if (string.IsNullOrEmpty(text) || !text.Contains("{{")) continue;
+
+            var matches = PlaceholderRegex.Matches(text);
+            if (matches.Count == 0) continue;
+
+            string updatedText = text;
+            foreach (Match match in matches)
             {
-                updatedFullText = updatedFullText.Replace(match.Value, replacementValue);
-                replacedKeys.Add(keyName);
-                totalReplacements++;
-            }
-        }
-
-        if (totalReplacements > 0)
-        {
-            if (updatedFullText.Contains('\n'))
-            {
-                
-                var parts = updatedFullText.Split('\n');
-
-                
-                texts[0].Text = parts[0];
-                for (int i = 1; i < texts.Count; i++)
-                    texts[i].Text = string.Empty;
-
-                
-                var firstRun = texts[0].Parent;
-                if (firstRun != null)
+                var keyName = match.Groups[1].Value;
+                if (TryGetReplacementValue(variableReplacements, keyName, out var replacementValue))
                 {
-                    
-                    var insertAnchor = firstRun.NextSibling();
-                    var parentEl   = firstRun.Parent;
+                    updatedText = updatedText.Replace(match.Value, replacementValue);
+                    replacedKeys.Add(keyName);
+                    totalReplacements++;
+                }
+            }
 
-                    
-                    for (int p = 1; p < parts.Length; p++)
+            if (updatedText != text)
+            {
+                if (updatedText.Contains('\n'))
+                {
+                    var parts = updatedText.Split('\n');
+                    textNode.Text = parts[0];
+
+                    var currentRun = textNode.Parent as Run;
+                    if (currentRun != null && currentRun.Parent != null)
                     {
-                        
-                        var brRun = new Run(new Break());
+                        var insertAnchor = currentRun.NextSibling();
+                        var parentEl = currentRun.Parent;
+                        var runProps = currentRun.GetFirstChild<RunProperties>()?.CloneNode(true) as RunProperties;
 
-                        
-                        var existingRpr = firstRun.Elements<RunProperties>().FirstOrDefault();
-                        if (existingRpr != null)
-                            brRun.PrependChild((RunProperties)existingRpr.CloneNode(true));
-
-                        
-                        var textRun = new Run(
-                            new Text(parts[p]) { Space = DocumentFormat.OpenXml.SpaceProcessingModeValues.Preserve });
-                        if (existingRpr != null)
-                            textRun.PrependChild((RunProperties)existingRpr.CloneNode(true));
-
-                        if (parentEl != null)
+                        for (int p = 1; p < parts.Length; p++)
                         {
+                            var brRun = new Run(new Break());
+                            var brProps = (runProps?.CloneNode(true) as RunProperties) ?? new RunProperties();
+                            EnsureFontSize12(brProps);
+                            brRun.PrependChild(brProps);
+
+                            var newTextRun = new Run(new Text(parts[p]) { Space = DocumentFormat.OpenXml.SpaceProcessingModeValues.Preserve });
+                            var textProps = (runProps?.CloneNode(true) as RunProperties) ?? new RunProperties();
+                            EnsureFontSize12(textProps);
+                            newTextRun.PrependChild(textProps);
+
                             if (insertAnchor == null)
                             {
                                 parentEl.AppendChild(brRun);
-                                parentEl.AppendChild(textRun);
+                                parentEl.AppendChild(newTextRun);
                             }
                             else
                             {
                                 parentEl.InsertBefore(brRun, insertAnchor);
-                                parentEl.InsertBefore(textRun, insertAnchor);
+                                parentEl.InsertBefore(newTextRun, insertAnchor);
                             }
                         }
                     }
                 }
-            }
-            else
-            {
-                texts[0].Text = updatedFullText;
-                for (int i = 1; i < texts.Count; i++)
-                    texts[i].Text = string.Empty;
+                else
+                {
+                    textNode.Text = updatedText;
+                }
             }
         }
 

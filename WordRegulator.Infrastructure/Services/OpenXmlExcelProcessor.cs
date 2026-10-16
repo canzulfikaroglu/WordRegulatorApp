@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using WordRegulator.Domain.Entities;
@@ -191,14 +191,53 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
         int measureCount = well.Measurements.Count;
         int delta = measureCount - 1;
 
-        
+        // Pre-replace header-only (non-measurement) well variables directly in the template row
+        // BEFORE cloning it, so that each cloned measurement row does NOT carry these placeholders.
+        // Without this, ReplaceInWorksheet would substitute WELL_GROUNDKOT etc. in every clone.
+        var headerOnlyReplacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["WELL_GROUNDKOT"]       = well.GroundKot,
+            ["WELL_GROUNDKOT_EXCEL"] = well.GroundKot,   // dedicated alias safe for Excel header rows
+            ["SONDAJ_ARAZI_KOTU"]    = well.GroundKot,
+            ["SONDAJ_KOTU"]          = well.GroundKot,
+            ["ZEMIN_KOTU"]           = well.GroundKot,
+            ["WELL_BOTTOMKOT"]       = well.BottomKot,
+            ["SONDAJ_DIP_KOTU"]      = well.BottomKot,
+            ["WELL_DEPTH"]           = well.DepthMeters.ToString("F2", System.Globalization.CultureInfo.GetCultureInfo("tr-TR")) + " m",
+            ["SONDAJ_DERINLIK"]      = well.DepthMeters.ToString("F2", System.Globalization.CultureInfo.GetCultureInfo("tr-TR")),
+            ["SONDAJ_DERINLIGI"]     = well.DepthMeters.ToString("F2", System.Globalization.CultureInfo.GetCultureInfo("tr-TR")),
+            ["WELL_NO"]              = well.WellName,
+            ["WELL_NAME"]            = well.WellName,
+            ["SONDAJ_NO"]            = well.WellName,
+            ["SK_NAME"]              = well.WellName,
+            ["WELL_LAT"]             = well.Latitude,
+            ["SONDAJ_ENLEM"]         = well.Latitude,
+            ["KOORDINAT_X"]          = well.Latitude,
+            ["WELL_X"]               = well.Latitude,
+            ["WELL_LON"]             = well.Longitude,
+            ["SONDAJ_BOYLAM"]        = well.Longitude,
+            ["KOORDINAT_Y"]          = well.Longitude,
+            ["WELL_Y"]               = well.Longitude,
+            ["WELL_START"]           = well.StartDate,
+            ["SONDAJ_BASLANGIC"]     = well.StartDate,
+            ["BASLAMA_TARIHI"]       = well.StartDate,
+            ["WELL_FINISH"]          = well.FinishDate,
+            ["SONDAJ_BITIS"]         = well.FinishDate,
+            ["BITIS_TARIHI"]         = well.FinishDate,
+            ["WELL_RESULT"]          = well.GroundwaterStatus,
+            ["WELL_WATER"]           = well.GroundwaterStatus,
+            ["SONDAJ_SONUC"]         = well.GroundwaterStatus,
+            ["WELL_COLLAPSED"]       = well.IsCollapsed ? "Evet" : "Hayır",
+            ["SONDAJ_COKME"]         = well.IsCollapsed ? "Evet" : "Hayır",
+        };
+        totalReplacements += ReplaceInRow(templateRow, headerOnlyReplacements, replacedKeys, doc);
+
         if (delta > 0)
         {
             ShiftRowNumbers(sheetData, originalRowNumber + 1, delta);
             ShiftMergeCells(sheet, originalRowNumber + 1, delta);
         }
 
-        
         for (int i = 0; i < measureCount; i++)
         {
             var measurement = well.Measurements[i];
@@ -223,7 +262,6 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
             sheetData.InsertBefore(newRow, templateRow);
         }
 
-        
         templateRow.Remove();
 
         return totalReplacements;

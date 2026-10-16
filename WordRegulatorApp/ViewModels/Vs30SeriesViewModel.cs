@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -13,9 +13,13 @@ public partial class Vs30SeriesViewModel : ObservableObject
     public string SeriesName => $"{SeriesNumber}. Serim (SS-{SeriesNumber})";
 
     public List<int> LayerCountOptions { get; } = new() { 4, 5 };
+    public List<int> LayerCountOptions2 { get; } = new() { 4, 5, 6, 7, 8, 9, 10 };
 
     [ObservableProperty]
     private int _selectedLayerCount = 5;
+
+    [ObservableProperty]
+    private int _selectedLayerCount2 = 5;
 
         [ObservableProperty]
     private string _kotStartInput = "0.00";
@@ -64,10 +68,12 @@ public partial class Vs30SeriesViewModel : ObservableObject
         public double KotAverage => (KotStart + KotEnd) / 2.0;
 
     public ObservableCollection<Vs30LayerViewModel> Layers { get; } = new();
+    public ObservableCollection<Vs30LayerViewModel> Layers2 { get; } = new();
 
     public event EventHandler? SeriesChanged;
 
     private bool _isSyncingLayers;
+    private bool _isSyncingLayers2;
 
     public Vs30SeriesViewModel(int seriesNumber, double defaultKotStart = 36.28, double defaultKotEnd = 36.50, string defaultT0 = "")
     {
@@ -76,6 +82,7 @@ public partial class Vs30SeriesViewModel : ObservableObject
         _kotEndInput = defaultKotEnd.ToString("F2");
         _t0Input = defaultT0;
         SetupLayers();
+        SetupLayers2();
     }
 
     public void SetupLayers()
@@ -150,6 +157,72 @@ public partial class Vs30SeriesViewModel : ObservableObject
         SeriesChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    public void SetupLayers2()
+    {
+        Tuple<double, double, double>[] defaults;
+        if (SeriesNumber == 1)
+        {
+            defaults = new Tuple<double, double, double>[]
+            {
+                new(0.00, 2.00, 120.0),
+                new(2.00, 7.50, 491.0),
+                new(7.50, 13.50, 570.0),
+                new(13.50, 21.00, 767.0),
+                new(21.00, 30.00, 821.0)
+            };
+        }
+        else if (SeriesNumber == 2)
+        {
+            defaults = new Tuple<double, double, double>[]
+            {
+                new(0.00, 2.20, 118.0),
+                new(2.20, 7.50, 452.0),
+                new(7.50, 13.50, 624.0),
+                new(13.50, 21.00, 782.0),
+                new(21.00, 30.00, 816.0)
+            };
+        }
+        else
+        {
+            defaults = new Tuple<double, double, double>[]
+            {
+                new(0.00, 2.00, 120.0),
+                new(2.00, 7.50, 450.0),
+                new(7.50, 13.50, 600.0),
+                new(13.50, 21.00, 750.0),
+                new(21.00, 30.00, 820.0)
+            };
+        }
+
+        var oldValues2 = Layers2.Select(l => new Tuple<double, double, double>(l.StartDepth, l.EndDepth, l.Velocity)).ToList();
+
+        foreach (var old in Layers2)
+        {
+            old.LayerChanged -= OnLayer2Changed;
+            old.DepthPropertyChanged -= OnLayer2DepthPropertyChanged;
+        }
+        Layers2.Clear();
+
+        for (int i = 1; i <= SelectedLayerCount2; i++)
+        {
+            Tuple<double, double, double> def;
+            if (i - 1 < oldValues2.Count)
+                def = oldValues2[i - 1];
+            else if (i - 1 < defaults.Length)
+                def = defaults[i - 1];
+            else
+                def = new Tuple<double, double, double>(0.0, i * 6.0, 300.0 + (i * 100));
+
+            var layer = new Vs30LayerViewModel(i, def.Item1, def.Item2, def.Item3);
+            layer.LayerChanged += OnLayer2Changed;
+            layer.DepthPropertyChanged += OnLayer2DepthPropertyChanged;
+            Layers2.Add(layer);
+        }
+
+        SyncLayerChains2();
+        SeriesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     private void SyncLayerChains()
     {
         if (_isSyncingLayers) return;
@@ -173,6 +246,61 @@ public partial class Vs30SeriesViewModel : ObservableObject
     private void OnLayerChanged(object? sender, EventArgs e)
     {
         if (_isSyncingLayers) return;
+        SeriesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnLayer2Changed(object? sender, EventArgs e)
+    {
+        if (_isSyncingLayers2) return;
+        SeriesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void SyncLayerChains2()
+    {
+        if (_isSyncingLayers2) return;
+        _isSyncingLayers2 = true;
+        try
+        {
+            for (int i = 0; i < Layers2.Count - 1; i++)
+            {
+                if (Layers2[i + 1].StartDepthInput != Layers2[i].EndDepthInput)
+                    Layers2[i + 1].StartDepthInput = Layers2[i].EndDepthInput;
+            }
+        }
+        finally
+        {
+            _isSyncingLayers2 = false;
+        }
+    }
+
+    private void OnLayer2DepthPropertyChanged(object? sender, string propName)
+    {
+        if (_isSyncingLayers2) return;
+        _isSyncingLayers2 = true;
+        try
+        {
+            if (sender is Vs30LayerViewModel changedLayer)
+            {
+                int idx = Layers2.IndexOf(changedLayer);
+                if (idx >= 0)
+                {
+                    if (propName == "EndDepth" && idx < Layers2.Count - 1)
+                    {
+                        if (Layers2[idx + 1].StartDepthInput != changedLayer.EndDepthInput)
+                            Layers2[idx + 1].StartDepthInput = changedLayer.EndDepthInput;
+                    }
+                    else if (propName == "StartDepth" && idx > 0)
+                    {
+                        if (Layers2[idx - 1].EndDepthInput != changedLayer.StartDepthInput)
+                            Layers2[idx - 1].EndDepthInput = changedLayer.StartDepthInput;
+                    }
+                }
+            }
+        }
+        finally
+        {
+            _isSyncingLayers2 = false;
+        }
         SeriesChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -217,6 +345,11 @@ public partial class Vs30SeriesViewModel : ObservableObject
     partial void OnSelectedLayerCountChanged(int value)
     {
         SetupLayers();
+    }
+
+    partial void OnSelectedLayerCount2Changed(int value)
+    {
+        SetupLayers2();
     }
 
     partial void OnKotStartInputChanged(string value)
