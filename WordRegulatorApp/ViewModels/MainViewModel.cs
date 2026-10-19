@@ -10,6 +10,7 @@ using Microsoft.Win32;
 using WordRegulator.Application.Interfaces;
 using WordRegulator.Domain.Entities;
 using WordRegulator.Domain.Enums;
+using WordRegulator.Domain.Helpers;
 using WordRegulator.Domain.Interfaces;
 
 namespace WordRegulatorApp.ViewModels;
@@ -157,6 +158,32 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    public ObservableCollection<ResidentialSuitabilityDefinition> ResidentialSuitabilities { get; } = new();
+
+    [ObservableProperty]
+    private ResidentialSuitabilityDefinition? _selectedResidentialSuitability;
+
+    partial void OnSelectedResidentialSuitabilityChanged(ResidentialSuitabilityDefinition? value)
+    {
+        UpdateResidentialSuitabilityVariables();
+    }
+
+    public void UpdateResidentialSuitabilityVariables()
+    {
+        var resVar = Variables.FirstOrDefault(v => string.Equals(v.Key, "RESİDENTİALSUİTABİLİTY", StringComparison.OrdinalIgnoreCase)
+                                               || string.Equals(v.Key, "RESIDENTIALSUITABILITY", StringComparison.OrdinalIgnoreCase));
+        if (resVar != null)
+        {
+            string val = SelectedResidentialSuitability != null
+                ? (!string.IsNullOrWhiteSpace(SelectedResidentialSuitability.Description)
+                    ? SelectedResidentialSuitability.Description.Trim().Replace("\r\n", "\n")
+                    : SelectedResidentialSuitability.Name)
+                : string.Empty;
+            resVar.Value = val;
+            _userOverriddenKeys.Add(resVar.Key);
+        }
+    }
+
     public ObservableCollection<VariableItemViewModel> Variables { get; } = new();
     public ICollectionView FilteredVariablesView { get; }
 
@@ -221,7 +248,17 @@ public partial class MainViewModel : ObservableObject
             Formations.Add(vm);
         }
 
+        foreach (var rs in WordRegulator.Application.Services.ResidentialSuitabilityRepository.All)
+        {
+            ResidentialSuitabilities.Add(rs);
+        }
+        if (ResidentialSuitabilities.Count > 0)
+        {
+            SelectedResidentialSuitability = ResidentialSuitabilities[0];
+        }
+
         LoadVariables();
+        UpdateResidentialSuitabilityVariables();
         SetupVs30Layers();
         SetupVs30Series();
         SetupDrillingWells();
@@ -673,7 +710,9 @@ public partial class MainViewModel : ObservableObject
         if (string.Equals(item.Key, "FORMATİONTYPE", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(item.Key, "FORMAŞİONTYPE", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(item.Key, "FORMATİONTEXT", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(item.Key, "FORMAŞİONTEXT", StringComparison.OrdinalIgnoreCase))
+            string.Equals(item.Key, "FORMAŞİONTEXT", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.Key, "RESİDENTİALSUİTABİLİTY", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.Key, "RESIDENTIALSUITABILITY", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
@@ -979,6 +1018,64 @@ public partial class MainViewModel : ObservableObject
                 replacements[$"ELASTİCİTYMODULUS1S{sNum}"] = series.ElasticityModulusLayer1;
                 replacements[$"ELASTİCİTYMODULUS2S{sNum}"] = series.ElasticityModulusLayer2;
 
+                // Otomatik Değerlendirmeler
+                string pEval1 = SeismicEvaluationHelper.EvaluatePoisson(series.PoissonLayer1);
+                string pEval2 = SeismicEvaluationHelper.EvaluatePoisson(series.PoissonLayer2);
+                string shEval1 = SeismicEvaluationHelper.EvaluateShearModulus(series.ShearModulusLayer1);
+                string shEval2 = SeismicEvaluationHelper.EvaluateShearModulus(series.ShearModulusLayer2);
+                string bEval1 = SeismicEvaluationHelper.EvaluateBulkModulus(series.BulkModulusLayer1);
+                string bEval2 = SeismicEvaluationHelper.EvaluateBulkModulus(series.BulkModulusLayer2);
+                string eEval1 = SeismicEvaluationHelper.EvaluateElasticityModulus(series.ElasticityModulusLayer1);
+                string eEval2 = SeismicEvaluationHelper.EvaluateElasticityModulus(series.ElasticityModulusLayer2);
+
+                replacements[$"SS_{sNum}_POISSON1_EVAL"] = pEval1;
+                replacements[$"SS_{sNum}_POISSON2_EVAL"] = pEval2;
+                replacements[$"SS_{sNum}_POISSON1_DESC"] = pEval1;
+                replacements[$"SS_{sNum}_POISSON2_DESC"] = pEval2;
+                replacements[$"SS_{sNum}_POISSON1_DEG"]  = pEval1;
+                replacements[$"SS_{sNum}_POISSON2_DEG"]  = pEval2;
+                replacements[$"SS_{sNum}_POISSON1_DEGERLENDIRME"] = pEval1;
+                replacements[$"SS_{sNum}_POISSON2_DEGERLENDIRME"] = pEval2;
+                replacements[$"POİSSONRATİO1S{sNum}_EVAL"] = pEval1;
+                replacements[$"POİSSONRATİO2S{sNum}_EVAL"] = pEval2;
+
+                replacements[$"SS_{sNum}_SHEAR1_EVAL"] = shEval1;
+                replacements[$"SS_{sNum}_SHEAR2_EVAL"] = shEval2;
+                replacements[$"SS_{sNum}_SHEAR1_DESC"] = shEval1;
+                replacements[$"SS_{sNum}_SHEAR2_DESC"] = shEval2;
+                replacements[$"SS_{sNum}_SHEAR1_DEG"]  = shEval1;
+                replacements[$"SS_{sNum}_SHEAR2_DEG"]  = shEval2;
+                replacements[$"SS_{sNum}_SHEAR1_DEGERLENDIRME"] = shEval1;
+                replacements[$"SS_{sNum}_SHEAR2_DEGERLENDIRME"] = shEval2;
+                replacements[$"SHEARMODULUS1S{sNum}_EVAL"] = shEval1;
+                replacements[$"SHEARMODULUS2S{sNum}_EVAL"] = shEval2;
+
+                replacements[$"SS_{sNum}_BULK1_EVAL"] = bEval1;
+                replacements[$"SS_{sNum}_BULK2_EVAL"] = bEval2;
+                replacements[$"SS_{sNum}_BULK1_DESC"] = bEval1;
+                replacements[$"SS_{sNum}_BULK2_DESC"] = bEval2;
+                replacements[$"SS_{sNum}_BULK1_DEG"]  = bEval1;
+                replacements[$"SS_{sNum}_BULK2_DEG"]  = bEval2;
+                replacements[$"SS_{sNum}_BULK1_SINIF"] = bEval1;
+                replacements[$"SS_{sNum}_BULK2_SINIF"] = bEval2;
+                replacements[$"SS_{sNum}_BULK1_CLASS"] = bEval1;
+                replacements[$"SS_{sNum}_BULK2_CLASS"] = bEval2;
+                replacements[$"SS_{sNum}_BULK1_DEGERLENDIRME"] = bEval1;
+                replacements[$"SS_{sNum}_BULK2_DEGERLENDIRME"] = bEval2;
+                replacements[$"BULKMODULE1S{sNum}_EVAL"] = bEval1;
+                replacements[$"BULKMODULE2S{sNum}_EVAL"] = bEval2;
+
+                replacements[$"SS_{sNum}_ELASTICITY1_EVAL"] = eEval1;
+                replacements[$"SS_{sNum}_ELASTICITY2_EVAL"] = eEval2;
+                replacements[$"SS_{sNum}_ELASTICITY1_DESC"] = eEval1;
+                replacements[$"SS_{sNum}_ELASTICITY2_DESC"] = eEval2;
+                replacements[$"SS_{sNum}_ELASTICITY1_DEG"]  = eEval1;
+                replacements[$"SS_{sNum}_ELASTICITY2_DEG"]  = eEval2;
+                replacements[$"SS_{sNum}_ELASTICITY1_DEGERLENDIRME"] = eEval1;
+                replacements[$"SS_{sNum}_ELASTICITY2_DEGERLENDIRME"] = eEval2;
+                replacements[$"ELASTİCİTYMODULUS1S{sNum}_EVAL"] = eEval1;
+                replacements[$"ELASTİCİTYMODULUS2S{sNum}_EVAL"] = eEval2;
+
                 string formula = seriesReplacements.TryGetValue("VS30_FORMULA", out var f) ? f : "";
                 string formulaFull = seriesReplacements.TryGetValue("VS30_FORMULA_FULL", out var ff) ? ff : "";
                 double h1Val = double.TryParse(seriesReplacements.TryGetValue("VS30_H1", out var h1Str) ? h1Str.Replace(',', '.') : "0", System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedH1) ? parsedH1 : 0.0;
@@ -1189,6 +1286,31 @@ public partial class MainViewModel : ObservableObject
             AddAlias("ALL_FORMATIONS", "FORMATİONTEXT");
             AddAlias("FORMATIONS_ALL", "FORMATİONTEXT");
 
+            if (SelectedResidentialSuitability != null)
+            {
+                string resDesc = !string.IsNullOrWhiteSpace(SelectedResidentialSuitability.Description)
+                    ? SelectedResidentialSuitability.Description.Trim().Replace("\r\n", "\n")
+                    : SelectedResidentialSuitability.Name;
+                string resName = SelectedResidentialSuitability.Name;
+
+                replacements["RESİDENTİALSUİTABİLİTY"] = resDesc;
+                replacements["RESIDENTIALSUITABILITY"] = resDesc;
+                replacements["RESİDENTİALSUİTABİLİTY_TEXT"] = resDesc;
+                replacements["RESIDENTIALSUITABILITY_TEXT"] = resDesc;
+                replacements["RESİDENTİALSUİTABİLİTY_NAME"] = resName;
+                replacements["RESIDENTIALSUITABILITY_NAME"] = resName;
+                replacements["RESİDENTİALSUİTABİLİTY_TITLE"] = resName;
+                replacements["RESIDENTIALSUITABILITY_TITLE"] = resName;
+            }
+
+            AddAlias("RESIDENTIALSUITABILITY", "RESİDENTİALSUİTABİLİTY");
+            AddAlias("RESIDENTIAL_SUITABILITY", "RESİDENTİALSUİTABİLİTY");
+            AddAlias("RESİDENTİAL_SUİTABİLİTY", "RESİDENTİALSUİTABİLİTY");
+            AddAlias("YERLESIMEUYGUNLUK", "RESİDENTİALSUİTABİLİTY");
+            AddAlias("YERLEŞİMEUYGUNLUK", "RESİDENTİALSUİTABİLİTY");
+            AddAlias("YERLESIME_UYGUNLUK", "RESİDENTİALSUİTABİLİTY");
+            AddAlias("YERLEŞİME_UYGUNLUK", "RESİDENTİALSUİTABİLİTY");
+
             
             int mtCount = MicrotremorMeasurements.Count;
             replacements["MICROTREMOR_COUNT"]  = mtCount.ToString();  
@@ -1285,6 +1407,10 @@ public partial class MainViewModel : ObservableObject
         RecalculateDependencies();
         RecalculateVs30();
         RecalculateDrillingWellsSummary();
+        if (ResidentialSuitabilities.Count > 0)
+        {
+            SelectedResidentialSuitability = ResidentialSuitabilities[0];
+        }
         SetStatus("Tüm değişkenler varsayılan değerlerine sıfırlandı.", "Info");
     }
 
@@ -1409,7 +1535,8 @@ public partial class MainViewModel : ObservableObject
                 Vs30Layers = vs30LayersData,
                 Vs30Series = vs30SeriesData,
                 MicrotremorMeasurements = microtremorData,
-                SelectedFormations = selectedFormations
+                SelectedFormations = selectedFormations,
+                SelectedResidentialSuitability = this.SelectedResidentialSuitability?.Name
             };
 
             string json = System.Text.Json.JsonSerializer.Serialize(state,
@@ -1577,6 +1704,20 @@ public partial class MainViewModel : ObservableObject
                 foreach (var f in Formations)
                 {
                     f.IsSelected = selectedNames.Contains(f.Name);
+                }
+            }
+
+            // --- Residential Suitability Selection ---
+            if (state.TryGetProperty("SelectedResidentialSuitability", out var rsEl))
+            {
+                var rsName = rsEl.GetString();
+                if (!string.IsNullOrEmpty(rsName))
+                {
+                    var found = ResidentialSuitabilities.FirstOrDefault(r => string.Equals(r.Name, rsName, StringComparison.OrdinalIgnoreCase));
+                    if (found != null)
+                    {
+                        SelectedResidentialSuitability = found;
+                    }
                 }
             }
 

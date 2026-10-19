@@ -56,6 +56,7 @@ public class VariableService : IVariableService
             new("FROMTHEBASETOPLEVEL", "Temel Üst Kotu Bilgisi", "Temel üst kotundan mesafe/bilgi", VariableCategory.Rapor, VariableType.Dependent, "-3,24(35,57)", order: 38),
             new("FORMATİONTYPE", "Formasyon Tipi", "Formasyon adı (Dropdown'dan seçilir)", VariableCategory.Rapor, VariableType.Independent, "Pendik Formasyonu (Dp)", order: 39),
             new("FORMATİONTEXT", "Formasyon Açıklaması", "Seçilen formasyonun rapor metni (Otomatik)", VariableCategory.Rapor, VariableType.Dependent, "", order: 39),
+            new("RESİDENTİALSUİTABİLİTY", "Yerleşime Uygunluk", "Yerleşime uygunluk değerlendirme metni (Dropdown'dan seçilir)", VariableCategory.Rapor, VariableType.Independent, "", order: 39),
             new("DRILLER", "Sondör Adı Soyadı", "Sondör adı soyadı", VariableCategory.Rapor, VariableType.Independent, "VURAL ÖNCÜ", order: 40),
             new("DRİLLİNGDATE", "Sondaj Tarihi", "Sondaj yapılma tarihi", VariableCategory.Rapor, VariableType.Independent, "", order: 41),
         };

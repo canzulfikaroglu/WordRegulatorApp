@@ -3,6 +3,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using WordRegulator.Application.Services;
 using WordRegulator.Domain.Entities;
+using WordRegulator.Domain.Helpers;
 using WordRegulator.Domain.Interfaces;
 using WordRegulator.Domain.Models;
 
@@ -648,19 +649,29 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 }
 
                 
+                // Normalize any split placeholders in all paragraphs of this cloned table
+                foreach (var p in cloned.Descendants<Paragraph>())
+                {
+                    NormalizeSplitPlaceholders(p);
+                }
+
                 if (pairIdx > 0)
                 {
                     ReplaceLiteralHeaders(cloned, num1, num2, s2 != null);
                 }
 
-                
+                // If odd number of series and s2 is null, trim the right-hand side (unused 2nd series)
+                if (s2 == null)
+                {
+                    TrimSeismicTableForSingleSeries(cloned);
+                }
+
                 var pairReplacements = BuildSeismicReplacements(s1, num1, s2, num2);
                 foreach (var row in cloned.Elements<TableRow>())
                 {
                     totalReplacements += ProcessElementContainers(row, pairReplacements, replacedKeys);
                 }
 
-                
                 parent.InsertBefore(cloned, table);
 
                 
@@ -770,19 +781,133 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         }
     }
 
-        private static Dictionary<string, string> BuildSeismicReplacements(
+    /// <summary>
+    /// When there is an odd number of seismic series (e.g. 1 or 3 series),
+    /// the last table clone for the odd series (where s2 == null) is trimmed so that
+    /// the right-hand columns (allocated for the non-existent even series) are deleted.
+    /// </summary>
+    private static void TrimSeismicTableForSingleSeries(Table table)
+    {
+        var rows = table.Elements<TableRow>().ToList();
+        if (rows.Count == 0) return;
+
+        var grid = table.GetFirstChild<TableGrid>();
+        var gridCols = grid?.Elements<GridColumn>().ToList() ?? new List<GridColumn>();
+
+        // Check whether this is a 5-column modulus table (or similar) or a 4-column coordinate table
+        int maxCells = rows.Max(r => r.Elements<TableCell>().Count());
+
+        if (gridCols.Count == 5 || maxCells >= 5)
+        {
+            // Modulus table (Poisson, Shear, Bulk, Elasticity):
+            // Row 0 has 3 cells: C0 (label/empty), C1 (span 2 for Series 1), C2 (span 2 for Series 2).
+            // Rows 1-3 have 5 cells: C0 (label), C1-C2 (Tabaka 1-2 for Series 1), C3-C4 (Tabaka 1-2 for Series 2).
+            foreach (var row in rows)
+            {
+                var cells = row.Elements<TableCell>().ToList();
+                if (cells.Count >= 5)
+                {
+                    cells[cells.Count - 1].Remove();
+                    cells[cells.Count - 2].Remove();
+                }
+                else if (cells.Count == 3)
+                {
+                    // Header row: delete C2 (Series 2)
+                    cells[cells.Count - 1].Remove();
+                }
+                else if (cells.Count == 1)
+                {
+                    // Full row span if any
+                    var gs = cells[0].GetFirstChild<TableCellProperties>()?.GetFirstChild<GridSpan>();
+                    if (gs?.Val != null && gs.Val.Value > 2)
+                    {
+                        gs.Val = gs.Val.Value - 2;
+                    }
+                }
+            }
+
+            // Remove last 2 grid columns
+            int removedColsWidth = 0;
+            if (gridCols.Count >= 2)
+            {
+                for (int i = gridCols.Count - 1; i >= gridCols.Count - 2; i--)
+                {
+                    if (int.TryParse(gridCols[i].Width?.Value, out int cw))
+                        removedColsWidth += cw;
+                    gridCols[i].Remove();
+                }
+            }
+
+            // Adjust table width if specified in dxa
+            var tblW = table.GetFirstChild<TableProperties>()?.GetFirstChild<TableWidth>();
+            if (tblW?.Type?.Value == TableWidthUnitValues.Dxa && int.TryParse(tblW.Width?.Value, out int tw))
+            {
+                if (tw > removedColsWidth && removedColsWidth > 0)
+                {
+                    tblW.Width = (tw - removedColsWidth).ToString();
+                }
+            }
+        }
+        else if (gridCols.Count == 4 || maxCells == 4)
+        {
+            // Coordinate table (Table 6):
+            // Row 0 has 3 cells: C0 (span 2), C1 (SS-1), C2 (SS-2).
+            // Rows 1-2 have 4 cells: C0 (label), C1 (sub-label), C2 (SS-1), C3 (SS-2).
+            // Rows 3-5 have 3 cells: C0 (span 2), C1 (SS-1), C2 (SS-2).
+            // In all rows, the last cell belongs to Series 2.
+            foreach (var row in rows)
+            {
+                var cells = row.Elements<TableCell>().ToList();
+                if (cells.Count > 0)
+                {
+                    cells[cells.Count - 1].Remove();
+                }
+            }
+
+            // Remove last grid column
+            int removedColsWidth = 0;
+            if (gridCols.Count >= 1)
+            {
+                var lastCol = gridCols.Last();
+                if (int.TryParse(lastCol.Width?.Value, out int cw))
+                    removedColsWidth += cw;
+                lastCol.Remove();
+            }
+
+            // Adjust table width if specified in dxa
+            var tblW = table.GetFirstChild<TableProperties>()?.GetFirstChild<TableWidth>();
+            if (tblW?.Type?.Value == TableWidthUnitValues.Dxa && int.TryParse(tblW.Width?.Value, out int tw))
+            {
+                if (tw > removedColsWidth && removedColsWidth > 0)
+                {
+                    tblW.Width = (tw - removedColsWidth).ToString();
+                }
+            }
+        }
+    }
+
+    private static Dictionary<string, string> BuildSeismicReplacements(
         Vs30SeriesItem? s1, int num1,
         Vs30SeriesItem? s2, int num2)
     {
         var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        
         d["SS_1_NAME"] = $"SS-{num1}";
         d["SS_2_NAME"] = s2 != null ? $"SS-{num2}" : "—";
         d["SERIM_1_NAME"] = $"{num1}. Serim";
         d["SERIM_2_NAME"] = s2 != null ? $"{num2}. Serim" : "—";
         d["SERIM_1_NO"] = num1.ToString();
         d["SERIM_2_NO"] = s2 != null ? num2.ToString() : "—";
+
+        // Aliases with Turkish İ and alternate formats
+        d["SERİM_1_NAME"] = $"{num1}. Serim";
+        d["SERİM_2_NAME"] = s2 != null ? $"{num2}. Serim" : "—";
+        d["SERİM_1_NO"] = num1.ToString();
+        d["SERİM_2_NO"] = s2 != null ? num2.ToString() : "—";
+        d["SERIM_1"] = $"{num1}. Serim";
+        d["SERIM_2"] = s2 != null ? $"{num2}. Serim" : "—";
+        d["SERİM_1"] = $"{num1}. Serim";
+        d["SERİM_2"] = s2 != null ? $"{num2}. Serim" : "—";
 
         
         string xStart1  = s1?.XStart  ?? "";
@@ -798,6 +923,15 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         string e1_1     = s1?.ElasticityModulusLayer1 ?? "";
         string e2_1     = s1?.ElasticityModulusLayer2 ?? "";
 
+        string p1_1_eval  = SeismicEvaluationHelper.EvaluatePoisson(p1_1);
+        string p2_1_eval  = SeismicEvaluationHelper.EvaluatePoisson(p2_1);
+        string sh1_1_eval = SeismicEvaluationHelper.EvaluateShearModulus(sh1_1);
+        string sh2_1_eval = SeismicEvaluationHelper.EvaluateShearModulus(sh2_1);
+        string b1_1_eval  = SeismicEvaluationHelper.EvaluateBulkModulus(b1_1);
+        string b2_1_eval  = SeismicEvaluationHelper.EvaluateBulkModulus(b2_1);
+        string e1_1_eval  = SeismicEvaluationHelper.EvaluateElasticityModulus(e1_1);
+        string e2_1_eval  = SeismicEvaluationHelper.EvaluateElasticityModulus(e2_1);
+
         
         d["SS_1_XSTART"]      = xStart1;
         d["SS_1_YSTART"]      = yStart1;
@@ -812,6 +946,57 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         d["SS_1_ELASTICITY1"] = e1_1;
         d["SS_1_ELASTICITY2"] = e2_1;
 
+        // Değerlendirmeler (SS_1)
+        d["SS_1_POISSON1_EVAL"]    = p1_1_eval;
+        d["SS_1_POISSON2_EVAL"]    = p2_1_eval;
+        d["SS_1_SHEAR1_EVAL"]      = sh1_1_eval;
+        d["SS_1_SHEAR2_EVAL"]      = sh2_1_eval;
+        d["SS_1_BULK1_EVAL"]       = b1_1_eval;
+        d["SS_1_BULK2_EVAL"]       = b2_1_eval;
+        d["SS_1_ELASTICITY1_EVAL"] = e1_1_eval;
+        d["SS_1_ELASTICITY2_EVAL"] = e2_1_eval;
+
+        // Alternatif aliaslar (SS_1)
+        d["SS_1_POISSON1_DESC"] = p1_1_eval;
+        d["SS_1_POISSON2_DESC"] = p2_1_eval;
+        d["SS_1_POISSON1_DEG"]  = p1_1_eval;
+        d["SS_1_POISSON2_DEG"]  = p2_1_eval;
+        d["SS_1_POISSON1_DEGERLENDIRME"] = p1_1_eval;
+        d["SS_1_POISSON2_DEGERLENDIRME"] = p2_1_eval;
+        d["SS_1_POISSON1_DEĞERLENDİRME"] = p1_1_eval;
+        d["SS_1_POISSON2_DEĞERLENDİRME"] = p2_1_eval;
+
+        d["SS_1_SHEAR1_DESC"] = sh1_1_eval;
+        d["SS_1_SHEAR2_DESC"] = sh2_1_eval;
+        d["SS_1_SHEAR1_DEG"]  = sh1_1_eval;
+        d["SS_1_SHEAR2_DEG"]  = sh2_1_eval;
+        d["SS_1_SHEAR1_DEGERLENDIRME"] = sh1_1_eval;
+        d["SS_1_SHEAR2_DEGERLENDIRME"] = sh2_1_eval;
+        d["SS_1_SHEAR1_DEĞERLENDİRME"] = sh1_1_eval;
+        d["SS_1_SHEAR2_DEĞERLENDİRME"] = sh2_1_eval;
+
+        d["SS_1_BULK1_DESC"]  = b1_1_eval;
+        d["SS_1_BULK2_DESC"]  = b2_1_eval;
+        d["SS_1_BULK1_DEG"]   = b1_1_eval;
+        d["SS_1_BULK2_DEG"]   = b2_1_eval;
+        d["SS_1_BULK1_SINIF"] = b1_1_eval;
+        d["SS_1_BULK2_SINIF"] = b2_1_eval;
+        d["SS_1_BULK1_CLASS"] = b1_1_eval;
+        d["SS_1_BULK2_CLASS"] = b2_1_eval;
+        d["SS_1_BULK1_DEGERLENDIRME"] = b1_1_eval;
+        d["SS_1_BULK2_DEGERLENDIRME"] = b2_1_eval;
+        d["SS_1_BULK1_DEĞERLENDİRME"] = b1_1_eval;
+        d["SS_1_BULK2_DEĞERLENDİRME"] = b2_1_eval;
+
+        d["SS_1_ELASTICITY1_DESC"] = e1_1_eval;
+        d["SS_1_ELASTICITY2_DESC"] = e2_1_eval;
+        d["SS_1_ELASTICITY1_DEG"]  = e1_1_eval;
+        d["SS_1_ELASTICITY2_DEG"]  = e2_1_eval;
+        d["SS_1_ELASTICITY1_DEGERLENDIRME"] = e1_1_eval;
+        d["SS_1_ELASTICITY2_DEGERLENDIRME"] = e2_1_eval;
+        d["SS_1_ELASTICITY1_DEĞERLENDİRME"] = e1_1_eval;
+        d["SS_1_ELASTICITY2_DEĞERLENDİRME"] = e2_1_eval;
+
         
         d["SEİSMİCCOORDİNATESS-1XSTART"]  = xStart1;
         d["SEİSMİCCOORDİNATESS-1YSTART"]  = yStart1;
@@ -825,6 +1010,14 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         d["BULKMODULE2S1"]                = b2_1;
         d["ELASTİCİTYMODULUS1S1"]          = e1_1;
         d["ELASTİCİTYMODULUS2S1"]          = e2_1;
+        d["POİSSONRATİO1S1_EVAL"]         = p1_1_eval;
+        d["POİSSONRATİO2S1_EVAL"]         = p2_1_eval;
+        d["SHEARMODULUS1S1_EVAL"]         = sh1_1_eval;
+        d["SHEARMODULUS2S1_EVAL"]         = sh2_1_eval;
+        d["BULKMODULE1S1_EVAL"]           = b1_1_eval;
+        d["BULKMODULE2S1_EVAL"]           = b2_1_eval;
+        d["ELASTİCİTYMODULUS1S1_EVAL"]     = e1_1_eval;
+        d["ELASTİCİTYMODULUS2S1_EVAL"]     = e2_1_eval;
 
         
         string xStart2  = s2?.XStart  ?? "";
@@ -840,6 +1033,15 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         string e1_2     = s2?.ElasticityModulusLayer1 ?? "";
         string e2_2     = s2?.ElasticityModulusLayer2 ?? "";
 
+        string p1_2_eval  = SeismicEvaluationHelper.EvaluatePoisson(p1_2);
+        string p2_2_eval  = SeismicEvaluationHelper.EvaluatePoisson(p2_2);
+        string sh1_2_eval = SeismicEvaluationHelper.EvaluateShearModulus(sh1_2);
+        string sh2_2_eval = SeismicEvaluationHelper.EvaluateShearModulus(sh2_2);
+        string b1_2_eval  = SeismicEvaluationHelper.EvaluateBulkModulus(b1_2);
+        string b2_2_eval  = SeismicEvaluationHelper.EvaluateBulkModulus(b2_2);
+        string e1_2_eval  = SeismicEvaluationHelper.EvaluateElasticityModulus(e1_2);
+        string e2_2_eval  = SeismicEvaluationHelper.EvaluateElasticityModulus(e2_2);
+
         
         d["SS_2_XSTART"]      = xStart2;
         d["SS_2_YSTART"]      = yStart2;
@@ -854,6 +1056,57 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         d["SS_2_ELASTICITY1"] = e1_2;
         d["SS_2_ELASTICITY2"] = e2_2;
 
+        // Değerlendirmeler (SS_2)
+        d["SS_2_POISSON1_EVAL"]    = p1_2_eval;
+        d["SS_2_POISSON2_EVAL"]    = p2_2_eval;
+        d["SS_2_SHEAR1_EVAL"]      = sh1_2_eval;
+        d["SS_2_SHEAR2_EVAL"]      = sh2_2_eval;
+        d["SS_2_BULK1_EVAL"]       = b1_2_eval;
+        d["SS_2_BULK2_EVAL"]       = b2_2_eval;
+        d["SS_2_ELASTICITY1_EVAL"] = e1_2_eval;
+        d["SS_2_ELASTICITY2_EVAL"] = e2_2_eval;
+
+        // Alternatif aliaslar (SS_2)
+        d["SS_2_POISSON1_DESC"] = p1_2_eval;
+        d["SS_2_POISSON2_DESC"] = p2_2_eval;
+        d["SS_2_POISSON1_DEG"]  = p1_2_eval;
+        d["SS_2_POISSON2_DEG"]  = p2_2_eval;
+        d["SS_2_POISSON1_DEGERLENDIRME"] = p1_2_eval;
+        d["SS_2_POISSON2_DEGERLENDIRME"] = p2_2_eval;
+        d["SS_2_POISSON1_DEĞERLENDİRME"] = p1_2_eval;
+        d["SS_2_POISSON2_DEĞERLENDİRME"] = p2_2_eval;
+
+        d["SS_2_SHEAR1_DESC"] = sh1_2_eval;
+        d["SS_2_SHEAR2_DESC"] = sh2_2_eval;
+        d["SS_2_SHEAR1_DEG"]  = sh1_2_eval;
+        d["SS_2_SHEAR2_DEG"]  = sh2_2_eval;
+        d["SS_2_SHEAR1_DEGERLENDIRME"] = sh1_2_eval;
+        d["SS_2_SHEAR2_DEGERLENDIRME"] = sh2_2_eval;
+        d["SS_2_SHEAR1_DEĞERLENDİRME"] = sh1_2_eval;
+        d["SS_2_SHEAR2_DEĞERLENDİRME"] = sh2_2_eval;
+
+        d["SS_2_BULK1_DESC"]  = b1_2_eval;
+        d["SS_2_BULK2_DESC"]  = b2_2_eval;
+        d["SS_2_BULK1_DEG"]   = b1_2_eval;
+        d["SS_2_BULK2_DEG"]   = b2_2_eval;
+        d["SS_2_BULK1_SINIF"] = b1_2_eval;
+        d["SS_2_BULK2_SINIF"] = b2_2_eval;
+        d["SS_2_BULK1_CLASS"] = b1_2_eval;
+        d["SS_2_BULK2_CLASS"] = b2_2_eval;
+        d["SS_2_BULK1_DEGERLENDIRME"] = b1_2_eval;
+        d["SS_2_BULK2_DEGERLENDIRME"] = b2_2_eval;
+        d["SS_2_BULK1_DEĞERLENDİRME"] = b1_2_eval;
+        d["SS_2_BULK2_DEĞERLENDİRME"] = b2_2_eval;
+
+        d["SS_2_ELASTICITY1_DESC"] = e1_2_eval;
+        d["SS_2_ELASTICITY2_DESC"] = e2_2_eval;
+        d["SS_2_ELASTICITY1_DEG"]  = e1_2_eval;
+        d["SS_2_ELASTICITY2_DEG"]  = e2_2_eval;
+        d["SS_2_ELASTICITY1_DEGERLENDIRME"] = e1_2_eval;
+        d["SS_2_ELASTICITY2_DEGERLENDIRME"] = e2_2_eval;
+        d["SS_2_ELASTICITY1_DEĞERLENDİRME"] = e1_2_eval;
+        d["SS_2_ELASTICITY2_DEĞERLENDİRME"] = e2_2_eval;
+
         
         d["SEİSMİCCOORDİNATESS-2XSTART"]  = xStart2;
         d["SEİSMİCCOORDİNATESS-2YSTART"]  = yStart2;
@@ -867,6 +1120,14 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         d["BULKMODULE2S2"]                = b2_2;
         d["ELASTİCİTYMODULUS1S2"]          = e1_2;
         d["ELASTİCİTYMODULUS2S2"]          = e2_2;
+        d["POİSSONRATİO1S2_EVAL"]         = p1_2_eval;
+        d["POİSSONRATİO2S2_EVAL"]         = p2_2_eval;
+        d["SHEARMODULUS1S2_EVAL"]         = sh1_2_eval;
+        d["SHEARMODULUS2S2_EVAL"]         = sh2_2_eval;
+        d["BULKMODULE1S2_EVAL"]           = b1_2_eval;
+        d["BULKMODULE2S2_EVAL"]           = b2_2_eval;
+        d["ELASTİCİTYMODULUS1S2_EVAL"]     = e1_2_eval;
+        d["ELASTİCİTYMODULUS2S2_EVAL"]     = e2_2_eval;
 
         
         d[$"SS_{num1}_NAME"]        = $"SS-{num1}";
@@ -883,6 +1144,36 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         d[$"SS_{num1}_ELASTICITY1"] = e1_1;
         d[$"SS_{num1}_ELASTICITY2"] = e2_1;
 
+        d[$"SS_{num1}_POISSON1_EVAL"]    = p1_1_eval;
+        d[$"SS_{num1}_POISSON2_EVAL"]    = p2_1_eval;
+        d[$"SS_{num1}_SHEAR1_EVAL"]      = sh1_1_eval;
+        d[$"SS_{num1}_SHEAR2_EVAL"]      = sh2_1_eval;
+        d[$"SS_{num1}_BULK1_EVAL"]       = b1_1_eval;
+        d[$"SS_{num1}_BULK2_EVAL"]       = b2_1_eval;
+        d[$"SS_{num1}_ELASTICITY1_EVAL"] = e1_1_eval;
+        d[$"SS_{num1}_ELASTICITY2_EVAL"] = e2_1_eval;
+
+        d[$"SS_{num1}_POISSON1_DESC"] = p1_1_eval;
+        d[$"SS_{num1}_POISSON2_DESC"] = p2_1_eval;
+        d[$"SS_{num1}_POISSON1_DEG"]  = p1_1_eval;
+        d[$"SS_{num1}_POISSON2_DEG"]  = p2_1_eval;
+        d[$"SS_{num1}_SHEAR1_DESC"] = sh1_1_eval;
+        d[$"SS_{num1}_SHEAR2_DESC"] = sh2_1_eval;
+        d[$"SS_{num1}_SHEAR1_DEG"]  = sh1_1_eval;
+        d[$"SS_{num1}_SHEAR2_DEG"]  = sh2_1_eval;
+        d[$"SS_{num1}_BULK1_DESC"]  = b1_1_eval;
+        d[$"SS_{num1}_BULK2_DESC"]  = b2_1_eval;
+        d[$"SS_{num1}_BULK1_DEG"]   = b1_1_eval;
+        d[$"SS_{num1}_BULK2_DEG"]   = b2_1_eval;
+        d[$"SS_{num1}_BULK1_SINIF"] = b1_1_eval;
+        d[$"SS_{num1}_BULK2_SINIF"] = b2_1_eval;
+        d[$"SS_{num1}_BULK1_CLASS"] = b1_1_eval;
+        d[$"SS_{num1}_BULK2_CLASS"] = b2_1_eval;
+        d[$"SS_{num1}_ELASTICITY1_DESC"] = e1_1_eval;
+        d[$"SS_{num1}_ELASTICITY2_DESC"] = e2_1_eval;
+        d[$"SS_{num1}_ELASTICITY1_DEG"]  = e1_1_eval;
+        d[$"SS_{num1}_ELASTICITY2_DEG"]  = e2_1_eval;
+
         if (s2 != null)
         {
             d[$"SS_{num2}_NAME"]        = $"SS-{num2}";
@@ -898,6 +1189,36 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             d[$"SS_{num2}_BULK2"]       = b2_2;
             d[$"SS_{num2}_ELASTICITY1"] = e1_2;
             d[$"SS_{num2}_ELASTICITY2"] = e2_2;
+
+            d[$"SS_{num2}_POISSON1_EVAL"]    = p1_2_eval;
+            d[$"SS_{num2}_POISSON2_EVAL"]    = p2_2_eval;
+            d[$"SS_{num2}_SHEAR1_EVAL"]      = sh1_2_eval;
+            d[$"SS_{num2}_SHEAR2_EVAL"]      = sh2_2_eval;
+            d[$"SS_{num2}_BULK1_EVAL"]       = b1_2_eval;
+            d[$"SS_{num2}_BULK2_EVAL"]       = b2_2_eval;
+            d[$"SS_{num2}_ELASTICITY1_EVAL"] = e1_2_eval;
+            d[$"SS_{num2}_ELASTICITY2_EVAL"] = e2_2_eval;
+
+            d[$"SS_{num2}_POISSON1_DESC"] = p1_2_eval;
+            d[$"SS_{num2}_POISSON2_DESC"] = p2_2_eval;
+            d[$"SS_{num2}_POISSON1_DEG"]  = p1_2_eval;
+            d[$"SS_{num2}_POISSON2_DEG"]  = p2_2_eval;
+            d[$"SS_{num2}_SHEAR1_DESC"] = sh1_2_eval;
+            d[$"SS_{num2}_SHEAR2_DESC"] = sh2_2_eval;
+            d[$"SS_{num2}_SHEAR1_DEG"]  = sh1_2_eval;
+            d[$"SS_{num2}_SHEAR2_DEG"]  = sh2_2_eval;
+            d[$"SS_{num2}_BULK1_DESC"]  = b1_2_eval;
+            d[$"SS_{num2}_BULK2_DESC"]  = b2_2_eval;
+            d[$"SS_{num2}_BULK1_DEG"]   = b1_2_eval;
+            d[$"SS_{num2}_BULK2_DEG"]   = b2_2_eval;
+            d[$"SS_{num2}_BULK1_SINIF"] = b1_2_eval;
+            d[$"SS_{num2}_BULK2_SINIF"] = b2_2_eval;
+            d[$"SS_{num2}_BULK1_CLASS"] = b1_2_eval;
+            d[$"SS_{num2}_BULK2_CLASS"] = b2_2_eval;
+            d[$"SS_{num2}_ELASTICITY1_DESC"] = e1_2_eval;
+            d[$"SS_{num2}_ELASTICITY2_DESC"] = e2_2_eval;
+            d[$"SS_{num2}_ELASTICITY1_DEG"]  = e1_2_eval;
+            d[$"SS_{num2}_ELASTICITY2_DEG"]  = e2_2_eval;
         }
 
         return d;
@@ -1273,12 +1594,100 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         fonts.ComplexScript = "Times New Roman";
     }
 
+    /// <summary>
+    /// Normalizes placeholders that have been split across multiple Text (<w:t>) elements
+    /// within runs in the same paragraph (common in Word documents edited by users).
+    /// </summary>
+    private static void NormalizeSplitPlaceholders(Paragraph paragraph)
+    {
+        var texts = paragraph.Descendants<Text>().ToList();
+        if (texts.Count <= 1) return;
+
+        bool hasOpen = false;
+        for (int i = 0; i < texts.Count; i++)
+        {
+            var t = texts[i].Text;
+            if (t != null && t.Contains('{'))
+            {
+                hasOpen = true;
+                break;
+            }
+        }
+        if (!hasOpen) return;
+
+        string fullText = string.Concat(texts.Select(t => t.Text ?? ""));
+        if (!fullText.Contains("{{") || !fullText.Contains("}}")) return;
+
+        var matches = PlaceholderRegex.Matches(fullText);
+        if (matches.Count == 0) return;
+
+        // Process matches in reverse order so character offsets before each match remain valid
+        for (int m = matches.Count - 1; m >= 0; m--)
+        {
+            var match = matches[m];
+            int mStart = match.Index;
+            int mEnd = match.Index + match.Length;
+
+            int currentOffset = 0;
+            int firstIdx = -1;
+            int lastIdx = -1;
+            int firstStartOffset = 0;
+            int lastStartOffset = 0;
+
+            for (int i = 0; i < texts.Count; i++)
+            {
+                int textLen = texts[i].Text?.Length ?? 0;
+                int textStart = currentOffset;
+                int textEnd = currentOffset + textLen;
+
+                if (firstIdx == -1 && mStart >= textStart && mStart < textEnd)
+                {
+                    firstIdx = i;
+                    firstStartOffset = textStart;
+                }
+
+                if (lastIdx == -1 && (mEnd - 1) >= textStart && (mEnd - 1) < textEnd)
+                {
+                    lastIdx = i;
+                    lastStartOffset = textStart;
+                    break;
+                }
+
+                currentOffset += textLen;
+            }
+
+            // Only normalize if the placeholder is actually split across different Text nodes
+            if (firstIdx != -1 && lastIdx != -1 && firstIdx < lastIdx)
+            {
+                string firstOriginal = texts[firstIdx].Text ?? "";
+                string lastOriginal = texts[lastIdx].Text ?? "";
+
+                int prefixLen = mStart - firstStartOffset;
+                string prefix = prefixLen > 0 ? firstOriginal.Substring(0, prefixLen) : "";
+
+                int suffixStart = mEnd - lastStartOffset;
+                string suffix = suffixStart < lastOriginal.Length ? lastOriginal.Substring(suffixStart) : "";
+
+                texts[firstIdx].Text = prefix + match.Value;
+
+                for (int k = firstIdx + 1; k < lastIdx; k++)
+                {
+                    texts[k].Text = "";
+                }
+
+                texts[lastIdx].Text = suffix;
+            }
+        }
+    }
+
     private int ReplaceInParagraph(
         Paragraph paragraph,
         IDictionary<string, string> variableReplacements,
         HashSet<string> replacedKeys)
     {
         int totalReplacements = 0;
+
+        NormalizeSplitPlaceholders(paragraph);
 
         foreach (var textNode in paragraph.Descendants<Text>().ToList())
         {
