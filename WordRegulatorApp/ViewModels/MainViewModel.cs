@@ -130,21 +130,29 @@ public partial class MainViewModel : ObservableObject
             _userOverriddenKeys.Add(typeVar.Key);
         }
 
-        // FORMATİONTEXT: alternating Name / Description lines per formation
-        // Output: FormationA\nDescriptionA\nFormationB\nDescriptionB
+        // FORMATİONTEXT:
+        // When 1 formation: only description
+        // When >1 formations: alternating Name / Description lines per formation
         var textVar = Variables.FirstOrDefault(v => string.Equals(v.Key, "FORMAŞİONTEXT", StringComparison.OrdinalIgnoreCase)
                                                  || string.Equals(v.Key, "FORMATİONTEXT", StringComparison.OrdinalIgnoreCase));
         if (textVar != null)
         {
-            var lines = new System.Text.StringBuilder();
-            for (int i = 0; i < selected.Count; i++)
+            if (selected.Count == 1)
             {
-                if (i > 0) lines.Append('\n');
-                lines.Append(selected[i].Name);
-                lines.Append('\n');
-                lines.Append(selected[i].Description.Trim().Replace("\n", " "));
+                textVar.Value = selected[0].Description.Trim().Replace("\r\n", "\n").Replace("\n", " ");
             }
-            textVar.Value = lines.ToString();
+            else
+            {
+                var lines = new System.Text.StringBuilder();
+                for (int i = 0; i < selected.Count; i++)
+                {
+                    if (i > 0) lines.Append("\n\n");
+                    lines.Append(selected[i].Name);
+                    lines.Append('\n');
+                    lines.Append(selected[i].Description.Trim().Replace("\r\n", "\n").Replace("\n", " "));
+                }
+                textVar.Value = lines.ToString();
+            }
             _userOverriddenKeys.Add(textVar.Key);
         }
     }
@@ -1176,6 +1184,11 @@ public partial class MainViewModel : ObservableObject
             AddAlias("SHEETISLANDPARCEL", "SHEETİSLANDPARCEL");
             AddAlias("PAFTAADAPARSEL", "SHEETİSLANDPARCEL");
 
+            AddAlias("FORMATION_DETAILS", "FORMATİONTEXT");
+            AddAlias("FORMASYON_DETAY", "FORMATİONTEXT");
+            AddAlias("ALL_FORMATIONS", "FORMATİONTEXT");
+            AddAlias("FORMATIONS_ALL", "FORMATİONTEXT");
+
             
             int mtCount = MicrotremorMeasurements.Count;
             replacements["MICROTREMOR_COUNT"]  = mtCount.ToString();  
@@ -1224,7 +1237,9 @@ public partial class MainViewModel : ObservableObject
                 });
             }
 
-            var batchResult = await _documentProcessor.ProcessTemplateDirectoryAsync(TemplateDirectoryPath, targetSubfolder, replacements, domainWells, domainVs30Series);
+            var domainFormations = Formations.Where(f => f.IsSelected).Select(f => f.Formation).ToList();
+
+            var batchResult = await _documentProcessor.ProcessTemplateDirectoryAsync(TemplateDirectoryPath, targetSubfolder, replacements, domainWells, domainVs30Series, domainFormations);
 
             
             if (_excelProcessor != null)

@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using WordRegulator.Application.Services;
 using WordRegulator.Domain.Entities;
 using WordRegulator.Domain.Interfaces;
 using WordRegulator.Domain.Models;
@@ -17,6 +18,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         IDictionary<string, string> variableReplacements,
         IEnumerable<DrillingWellItem>? wells = null,
         IEnumerable<Vs30SeriesItem>? vs30Series = null,
+        IEnumerable<FormationDefinition>? formations = null,
         CancellationToken cancellationToken = default)
     {
         var result = new DocumentProcessResult();
@@ -65,6 +67,19 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
 
                     replacementCount += ProcessDynamicMicrotremorTables(mainPart.Document.Body, variableReplacements, replacedKeys);
 
+                    if (formations != null && formations.Any())
+                    {
+                        replacementCount += ProcessDynamicFormationParagraphs(mainPart.Document.Body, formations, replacedKeys);
+                    }
+                    else
+                    {
+                        var inferred = InferFormationsFromReplacements(variableReplacements);
+                        if (inferred.Count > 0)
+                        {
+                            replacementCount += ProcessDynamicFormationParagraphs(mainPart.Document.Body, inferred, replacedKeys);
+                        }
+                    }
+
                     replacementCount += ProcessElementContainers(mainPart.Document.Body, variableReplacements, replacedKeys);
                 }
 
@@ -108,6 +123,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         IDictionary<string, string> variableReplacements,
         IEnumerable<DrillingWellItem>? wells = null,
         IEnumerable<Vs30SeriesItem>? vs30Series = null,
+        IEnumerable<FormationDefinition>? formations = null,
         CancellationToken cancellationToken = default)
     {
         var batchResult = new BatchProcessResult();
@@ -142,7 +158,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 var fileNameNoExt = Path.GetFileNameWithoutExtension(templateFile);
                 var targetOutputPath = Path.Combine(outputDirectoryPath, $"{fileNameNoExt}_Düzenlenmiş.docx");
 
-                var fileResult = await ProcessDocumentAsync(templateFile, targetOutputPath, variableReplacements, wells, vs30Series, cancellationToken);
+                var fileResult = await ProcessDocumentAsync(templateFile, targetOutputPath, variableReplacements, wells, vs30Series, formations, cancellationToken);
                 if (fileResult.Success)
                 {
                     batchResult.ProcessedFileCount++;
@@ -1452,6 +1468,206 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
 
             
             templateRow.Remove();
+        }
+
+        return totalReplacements;
+    }
+
+    private sealed class FormationBlock
+    {
+        public Paragraph? TypeParagraph { get; set; }
+        public Paragraph TextParagraph { get; set; } = null!;
+        public List<Paragraph> AllParagraphs { get; set; } = new();
+        public bool HasSeparateTypeParagraph { get; set; }
+    }
+
+    private static bool IsFormationTypePlaceholder(string text) =>
+        text.IndexOf("FORMATİONTYPE", StringComparison.OrdinalIgnoreCase) >= 0 ||
+        text.IndexOf("FORMAŞİONTYPE", StringComparison.OrdinalIgnoreCase) >= 0 ||
+        text.IndexOf("FORMATIONTYPE", StringComparison.OrdinalIgnoreCase) >= 0;
+
+    private static bool IsFormationTextPlaceholder(string text) =>
+        text.IndexOf("FORMATİONTEXT", StringComparison.OrdinalIgnoreCase) >= 0 ||
+        text.IndexOf("FORMAŞİONTEXT", StringComparison.OrdinalIgnoreCase) >= 0 ||
+        text.IndexOf("FORMATIONTEXT", StringComparison.OrdinalIgnoreCase) >= 0;
+
+    private static List<FormationDefinition> InferFormationsFromReplacements(IDictionary<string, string> replacements)
+    {
+        var list = new List<FormationDefinition>();
+        string? val = null;
+        if (replacements.TryGetValue("FORMATİONTYPE", out var v1) && !string.IsNullOrWhiteSpace(v1)) val = v1;
+        else if (replacements.TryGetValue("FORMAŞİONTYPE", out var v2) && !string.IsNullOrWhiteSpace(v2)) val = v2;
+        else if (replacements.TryGetValue("FORMATIONTYPE", out var v3) && !string.IsNullOrWhiteSpace(v3)) val = v3;
+
+        if (string.IsNullOrWhiteSpace(val)) return list;
+
+        var parts = val.Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var p in parts)
+        {
+            var trimmed = p.Trim();
+            var repoMatch = FormationRepository.All
+                .FirstOrDefault(f => string.Equals(f.Name.Trim(), trimmed, StringComparison.OrdinalIgnoreCase));
+            if (repoMatch != null)
+            {
+                list.Add(repoMatch);
+            }
+            else
+            {
+                list.Add(new FormationDefinition(trimmed, ""));
+            }
+        }
+        return list;
+    }
+
+    private int ProcessDynamicFormationParagraphs(
+        Body body,
+        IEnumerable<FormationDefinition> formations,
+        HashSet<string> replacedKeys)
+    {
+        var formationList = formations.ToList();
+        if (formationList.Count == 0) return 0;
+
+        int totalReplacements = 0;
+
+        var allParagraphs = body.Descendants<Paragraph>().ToList();
+
+        var blocks = new List<FormationBlock>();
+        var visited = new HashSet<Paragraph>();
+
+        for (int i = 0; i < allParagraphs.Count; i++)
+        {
+            var p = allParagraphs[i];
+            if (visited.Contains(p)) continue;
+
+            string pText = p.InnerText ?? "";
+            bool hasType = IsFormationTypePlaceholder(pText);
+            bool hasText = IsFormationTextPlaceholder(pText);
+
+            if (!hasType && !hasText) continue;
+
+            // Pattern 1: Both placeholders in the SAME paragraph
+            if (hasType && hasText)
+            {
+                blocks.Add(new FormationBlock
+                {
+                    TypeParagraph = p,
+                    TextParagraph = p,
+                    AllParagraphs = new List<Paragraph> { p },
+                    HasSeparateTypeParagraph = false
+                });
+                visited.Add(p);
+                continue;
+            }
+
+            // Pattern 2: FORMATİONTYPE followed shortly by FORMATİONTEXT in separate paragraphs
+            if (hasType)
+            {
+                Paragraph? foundTextP = null;
+                var candidateBlock = new List<Paragraph> { p };
+
+                for (int j = i + 1; j < allParagraphs.Count && j <= i + 5; j++)
+                {
+                    var nextP = allParagraphs[j];
+                    if (nextP.Parent != p.Parent) break;
+
+                    string nextText = nextP.InnerText ?? "";
+                    if (IsFormationTextPlaceholder(nextText))
+                    {
+                        foundTextP = nextP;
+                        candidateBlock.Add(nextP);
+                        break;
+                    }
+                    else if (string.IsNullOrWhiteSpace(nextText))
+                    {
+                        candidateBlock.Add(nextP);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                if (foundTextP != null)
+                {
+                    int nextIdx = allParagraphs.IndexOf(foundTextP) + 1;
+                    if (nextIdx < allParagraphs.Count &&
+                        allParagraphs[nextIdx].Parent == p.Parent &&
+                        string.IsNullOrWhiteSpace(allParagraphs[nextIdx].InnerText))
+                    {
+                        candidateBlock.Add(allParagraphs[nextIdx]);
+                    }
+
+                    blocks.Add(new FormationBlock
+                    {
+                        TypeParagraph = p,
+                        TextParagraph = foundTextP,
+                        AllParagraphs = candidateBlock,
+                        HasSeparateTypeParagraph = true
+                    });
+
+                    foreach (var cp in candidateBlock)
+                    {
+                        visited.Add(cp);
+                    }
+                    continue;
+                }
+                else
+                {
+                    // Isolated FORMATİONTYPE elsewhere in the report
+                    continue;
+                }
+            }
+
+            // Pattern 3: Isolated FORMATİONTEXT without any preceding FORMATİONTYPE
+            if (hasText)
+            {
+                blocks.Add(new FormationBlock
+                {
+                    TypeParagraph = null,
+                    TextParagraph = p,
+                    AllParagraphs = new List<Paragraph> { p },
+                    HasSeparateTypeParagraph = false
+                });
+                visited.Add(p);
+                continue;
+            }
+        }
+
+        foreach (var block in blocks)
+        {
+            if (block.AllParagraphs.Count == 0) continue;
+            var anchor = block.AllParagraphs[0];
+            var parent = anchor.Parent;
+            if (parent == null) continue;
+
+            for (int fIndex = 0; fIndex < formationList.Count; fIndex++)
+            {
+                var f = formationList[fIndex];
+                string fName = f.Name;
+                string fDesc = f.Description.Trim().Replace("\r\n", "\n").Replace("\n", " ");
+
+                var formReplacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["FORMATİONTYPE"] = fName,
+                    ["FORMAŞİONTYPE"] = fName,
+                    ["FORMATIONTYPE"] = fName,
+                    ["FORMATİONTEXT"] = block.HasSeparateTypeParagraph ? fDesc : $"{fName}\n{fDesc}",
+                    ["FORMAŞİONTEXT"] = block.HasSeparateTypeParagraph ? fDesc : $"{fName}\n{fDesc}",
+                    ["FORMATIONTEXT"] = block.HasSeparateTypeParagraph ? fDesc : $"{fName}\n{fDesc}",
+                };
+
+                foreach (var pInBlock in block.AllParagraphs)
+                {
+                    var newP = (Paragraph)pInBlock.CloneNode(true);
+                    totalReplacements += ReplaceInParagraph(newP, formReplacements, replacedKeys);
+                    parent.InsertBefore(newP, anchor);
+                }
+            }
+
+            foreach (var pInBlock in block.AllParagraphs)
+            {
+                pInBlock.Remove();
+            }
         }
 
         return totalReplacements;
