@@ -215,17 +215,37 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                                                 rowText.Contains("{{DAY}}") ||
                                                 rowText.Contains("{{GUN}}");
 
+                // Identify column index for Sondaj No from template row if this is a water measurement table
+                int wellNoColIndex = -1;
+                if (isWaterMeasurementTable)
+                {
+                    var tplCells = row.Elements<TableCell>().ToList();
+                    for (int ci = 0; ci < tplCells.Count; ci++)
+                    {
+                        string ct = tplCells[ci].InnerText;
+                        if (ct.Contains("WELL_NO", StringComparison.OrdinalIgnoreCase) ||
+                            ct.Contains("WELL_NAME", StringComparison.OrdinalIgnoreCase) ||
+                            ct.Contains("SONDAJ_NO", StringComparison.OrdinalIgnoreCase) ||
+                            ct.Contains("SK_NAME", StringComparison.OrdinalIgnoreCase))
+                        {
+                            wellNoColIndex = ci;
+                            break;
+                        }
+                    }
+                    if (wellNoColIndex == -1) wellNoColIndex = 0;
+                }
+
                 for (int i = 0; i < wellList.Count; i++)
                 {
                     var w = wellList[i];
 
                     if (isWaterMeasurementTable)
                     {
-                        
                         var measurements = w.Measurements.Count > 0
                             ? w.Measurements
                             : new List<GroundwaterMeasurementItem> { new GroundwaterMeasurementItem { MeasurementDate = "", WaterDepth = w.IsCollapsed ? "Kuyu çökmüş" : "" } };
 
+                        var wellRows = new List<TableRow>();
                         for (int j = 0; j < measurements.Count; j++)
                         {
                             var m = measurements[j];
@@ -234,11 +254,17 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
 
                             totalReplacements += ProcessElementContainers(newRow, wellReplacements, replacedKeys);
                             table.InsertBefore(newRow, row);
+                            wellRows.Add(newRow);
+                        }
+
+                        // If this well has multiple measurements, vertically merge only the Sondaj No column
+                        if (wellRows.Count > 1 && wellNoColIndex >= 0)
+                        {
+                            ApplyVerticalMerge(wellRows, wellNoColIndex);
                         }
                     }
                     else
                     {
-                        
                         var newRow = (TableRow)row.CloneNode(true);
                         var wellReplacements = GetWellReplacementsDictionary(w, null, i + 1);
 
@@ -1290,8 +1316,34 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             }
 
             
+            // Identify column indices for Sondaj No and Zemin Kotu from templateRow
+            int nameColIndex = -1;
+            int kotColIndex = -1;
+            var tplCells = templateRow.Elements<TableCell>().ToList();
+            for (int ci = 0; ci < tplCells.Count; ci++)
+            {
+                string ct = tplCells[ci].InnerText;
+                if (ct.Contains("SONDAJ_PM_NAME", StringComparison.OrdinalIgnoreCase) ||
+                    ct.Contains("SONDAJ_PM_NO", StringComparison.OrdinalIgnoreCase) ||
+                    ct.Contains("SK_PM_NAME", StringComparison.OrdinalIgnoreCase) ||
+                    ct.Contains("SK_PM_NO", StringComparison.OrdinalIgnoreCase))
+                {
+                    nameColIndex = ci;
+                }
+                else if (ct.Contains("SONDAJ_PM_ZEMIN_KOTU", StringComparison.OrdinalIgnoreCase) ||
+                         ct.Contains("SK_PM_ZEMIN_KOTU", StringComparison.OrdinalIgnoreCase) ||
+                         ct.Contains("SONDAJ_PM_KOT", StringComparison.OrdinalIgnoreCase) ||
+                         ct.Contains("SK_PM_KOT", StringComparison.OrdinalIgnoreCase))
+                {
+                    kotColIndex = ci;
+                }
+            }
+            if (nameColIndex == -1) nameColIndex = 0;
+            if (kotColIndex == -1) kotColIndex = 1;
+
             foreach (var w in wellList)
             {
+                var wellRows = new List<TableRow>();
                 bool isFirstRowOfWell = true;
                 foreach (var pmRow in w.PressuremeterRows)
                 {
@@ -1299,11 +1351,18 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                     var pmReplacements = GetPressuremeterReplacementsDictionary(w, pmRow, isFirstRowOfWell);
                     totalReplacements += ProcessElementContainers(newRow, pmReplacements, replacedKeys);
                     table.InsertBefore(newRow, templateRow);
+                    wellRows.Add(newRow);
                     isFirstRowOfWell = false;
+                }
+
+                // If this well has multiple pressuremeter rows, vertically merge Sondaj No and Zemin Kotu columns
+                if (wellRows.Count > 1)
+                {
+                    if (nameColIndex >= 0) ApplyVerticalMerge(wellRows, nameColIndex);
+                    if (kotColIndex >= 0) ApplyVerticalMerge(wellRows, kotColIndex);
                 }
             }
 
-            
             templateRow.Remove();
         }
 

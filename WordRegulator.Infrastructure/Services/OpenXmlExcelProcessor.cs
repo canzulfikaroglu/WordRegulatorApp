@@ -167,7 +167,6 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
         Row? templateRow = null;
         int templateRowIndex = -1;
 
-        
         for (int i = 0; i < rows.Count; i++)
         {
             var rowText = GetRowText(rows[i], doc);
@@ -184,87 +183,222 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
             }
         }
 
-        if (templateRow == null || well.Measurements.Count == 0)
+        if (templateRow == null)
             return 0;
 
         uint originalRowNumber = templateRow.RowIndex?.Value ?? (uint)(templateRowIndex + 1);
-        int measureCount = well.Measurements.Count;
-        int delta = measureCount - 1;
 
-        // Pre-replace header-only (non-measurement) well variables directly in the template row
-        // BEFORE cloning it, so that each cloned measurement row does NOT carry these placeholders.
-        // Without this, ReplaceInWorksheet would substitute WELL_GROUNDKOT etc. in every clone.
-        var headerOnlyReplacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        // Detect column letters for Depth, Date, and Day from templateRow
+        string depthCol = "N";
+        string dateCol = "O";
+        string dayCol = "Q";
+
+        Cell? cellDepth1 = null;
+        Cell? cellDate1 = null;
+        Cell? cellDay1 = null;
+
+        foreach (var cell in templateRow.Elements<Cell>())
         {
-            ["WELL_GROUNDKOT"]       = well.GroundKot,
-            ["WELL_GROUNDKOT_EXCEL"] = well.GroundKot,   // dedicated alias safe for Excel header rows
-            ["SONDAJ_ARAZI_KOTU"]    = well.GroundKot,
-            ["SONDAJ_KOTU"]          = well.GroundKot,
-            ["ZEMIN_KOTU"]           = well.GroundKot,
-            ["WELL_BOTTOMKOT"]       = well.BottomKot,
-            ["SONDAJ_DIP_KOTU"]      = well.BottomKot,
-            ["WELL_DEPTH"]           = well.DepthMeters.ToString("F2", System.Globalization.CultureInfo.GetCultureInfo("tr-TR")) + " m",
-            ["SONDAJ_DERINLIK"]      = well.DepthMeters.ToString("F2", System.Globalization.CultureInfo.GetCultureInfo("tr-TR")),
-            ["SONDAJ_DERINLIGI"]     = well.DepthMeters.ToString("F2", System.Globalization.CultureInfo.GetCultureInfo("tr-TR")),
-            ["WELL_NO"]              = well.WellName,
-            ["WELL_NAME"]            = well.WellName,
-            ["SONDAJ_NO"]            = well.WellName,
-            ["SK_NAME"]              = well.WellName,
-            ["WELL_LAT"]             = well.Latitude,
-            ["SONDAJ_ENLEM"]         = well.Latitude,
-            ["KOORDINAT_X"]          = well.Latitude,
-            ["WELL_X"]               = well.Latitude,
-            ["WELL_LON"]             = well.Longitude,
-            ["SONDAJ_BOYLAM"]        = well.Longitude,
-            ["KOORDINAT_Y"]          = well.Longitude,
-            ["WELL_Y"]               = well.Longitude,
-            ["WELL_START"]           = well.StartDate,
-            ["SONDAJ_BASLANGIC"]     = well.StartDate,
-            ["BASLAMA_TARIHI"]       = well.StartDate,
-            ["WELL_FINISH"]          = well.FinishDate,
-            ["SONDAJ_BITIS"]         = well.FinishDate,
-            ["BITIS_TARIHI"]         = well.FinishDate,
-            ["WELL_RESULT"]          = well.GroundwaterStatus,
-            ["WELL_WATER"]           = well.GroundwaterStatus,
-            ["SONDAJ_SONUC"]         = well.GroundwaterStatus,
-            ["WELL_COLLAPSED"]       = well.IsCollapsed ? "Evet" : "Hayır",
-            ["SONDAJ_COKME"]         = well.IsCollapsed ? "Evet" : "Hayır",
-        };
-        totalReplacements += ReplaceInRow(templateRow, headerOnlyReplacements, replacedKeys, doc);
+            string? text = GetCellValue(cell, doc);
+            if (string.IsNullOrEmpty(text)) continue;
 
-        if (delta > 0)
-        {
-            ShiftRowNumbers(sheetData, originalRowNumber + 1, delta);
-            ShiftMergeCells(sheet, originalRowNumber + 1, delta);
-        }
+            string col = GetColumnReference(cell.CellReference?.Value ?? "");
+            if (string.IsNullOrEmpty(col)) continue;
 
-        for (int i = 0; i < measureCount; i++)
-        {
-            var measurement = well.Measurements[i];
-            uint currentRowIndex = (uint)(originalRowNumber + i);
-
-            var newRow = CloneRow(templateRow, currentRowIndex, doc);
-            var measureReplacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            if (text.Contains("WELL_WATER_DEPTH", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("SONDAJ_SU_DERINLIK", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("WELL_GW_DEPTH", StringComparison.OrdinalIgnoreCase))
             {
-                ["WELL_MEASURE_DATE"]     = measurement.MeasurementDate,
-                ["WELL_MEASUREMENT_DATE"] = measurement.MeasurementDate,
-                ["SONDAJ_OLCUM_TARIHI"]   = measurement.MeasurementDate,
-                ["WELL_WATER_DEPTH"]      = measurement.WaterDepth,
-                ["WELL_GW_DEPTH"]         = measurement.WaterDepth,
-                ["SONDAJ_SU_DERINLIK"]    = measurement.WaterDepth,
-                ["DAY"]                   = measurement.Day,
-                ["GUN"]                   = measurement.Day,
-                ["WELL_DAY"]              = measurement.Day,
-                ["ACIKLAMA"]              = measurement.Day,
-            };
-
-            totalReplacements += ReplaceInRow(newRow, measureReplacements, replacedKeys, doc);
-            sheetData.InsertBefore(newRow, templateRow);
+                depthCol = col;
+                cellDepth1 = cell;
+            }
+            else if (text.Contains("WELL_MEASURE_DATE", StringComparison.OrdinalIgnoreCase) ||
+                     text.Contains("WELL_MEASUREMENT_DATE", StringComparison.OrdinalIgnoreCase) ||
+                     text.Contains("SONDAJ_OLCUM_TARIHI", StringComparison.OrdinalIgnoreCase))
+            {
+                dateCol = col;
+                cellDate1 = cell;
+            }
+            else if (text.Contains("{{DAY}}", StringComparison.OrdinalIgnoreCase) ||
+                     text.Contains("{{GUN}}", StringComparison.OrdinalIgnoreCase) ||
+                     text.Contains("WELL_DAY", StringComparison.OrdinalIgnoreCase) ||
+                     text.Contains("ACIKLAMA", StringComparison.OrdinalIgnoreCase))
+            {
+                dayCol = col;
+                cellDay1 = cell;
+            }
         }
 
-        templateRow.Remove();
+        cellDepth1 ??= GetOrCreateCell(templateRow, depthCol, originalRowNumber);
+        cellDate1  ??= GetOrCreateCell(templateRow, dateCol, originalRowNumber);
+        cellDay1   ??= GetOrCreateCell(templateRow, dayCol, originalRowNumber);
+
+        uint? depthStyle = cellDepth1.StyleIndex?.Value;
+        uint? dateStyle  = cellDate1.StyleIndex?.Value;
+        uint? dayStyle   = cellDay1.StyleIndex?.Value;
+
+        int measureCount = well.Measurements.Count;
+
+        if (measureCount == 0)
+        {
+            string emptyDepth = well.IsCollapsed ? "Kuyu çökmüş" : string.Empty;
+            SetCellValue(cellDepth1, emptyDepth, doc);
+            SetCellValue(cellDate1, string.Empty, doc);
+            SetCellValue(cellDay1, string.Empty, doc);
+            replacedKeys.Add("WELL_WATER_DEPTH");
+            replacedKeys.Add("WELL_MEASURE_DATE");
+            replacedKeys.Add("DAY");
+            return 3;
+        }
+
+        // 1. Measurement: Row 13 (templateRow in-place)
+        SetCellValue(cellDepth1, well.Measurements[0].WaterDepth ?? string.Empty, doc);
+        SetCellValue(cellDate1, well.Measurements[0].MeasurementDate ?? string.Empty, doc);
+        SetCellValue(cellDay1, well.Measurements[0].Day ?? string.Empty, doc);
+        replacedKeys.Add("WELL_WATER_DEPTH");
+        replacedKeys.Add("WELL_MEASURE_DATE");
+        replacedKeys.Add("DAY");
+        totalReplacements += 3;
+
+        // 2. Measurement: Row 14 (in-place in pre-allocated row slot)
+        if (measureCount > 1)
+        {
+            uint row2Num = originalRowNumber + 1;
+            var row2 = sheetData.Elements<Row>().FirstOrDefault(r => r.RowIndex?.Value == row2Num);
+            if (row2 != null)
+            {
+                var cDepth2 = GetOrCreateCell(row2, depthCol, row2Num, depthStyle);
+                var cDate2  = GetOrCreateCell(row2, dateCol, row2Num, dateStyle);
+                var cDay2   = GetOrCreateCell(row2, dayCol, row2Num, dayStyle);
+
+                SetCellValue(cDepth2, well.Measurements[1].WaterDepth ?? string.Empty, doc);
+                SetCellValue(cDate2, well.Measurements[1].MeasurementDate ?? string.Empty, doc);
+                SetCellValue(cDay2, well.Measurements[1].Day ?? string.Empty, doc);
+                EnsureMergeCell(sheet, $"{dateCol}{row2Num}:P{row2Num}");
+                EnsureMergeCell(sheet, $"{dayCol}{row2Num}:R{row2Num}");
+                totalReplacements += 3;
+            }
+        }
+
+        // 3. Measurement: Row 15 (in-place in pre-allocated row slot)
+        if (measureCount > 2)
+        {
+            uint row3Num = originalRowNumber + 2;
+            var row3 = sheetData.Elements<Row>().FirstOrDefault(r => r.RowIndex?.Value == row3Num);
+            if (row3 != null)
+            {
+                var cDepth3 = GetOrCreateCell(row3, depthCol, row3Num, depthStyle);
+                var cDate3  = GetOrCreateCell(row3, dateCol, row3Num, dateStyle);
+                var cDay3   = GetOrCreateCell(row3, dayCol, row3Num, dayStyle);
+
+                SetCellValue(cDepth3, well.Measurements[2].WaterDepth ?? string.Empty, doc);
+                SetCellValue(cDate3, well.Measurements[2].MeasurementDate ?? string.Empty, doc);
+                SetCellValue(cDay3, well.Measurements[2].Day ?? string.Empty, doc);
+                EnsureMergeCell(sheet, $"{dateCol}{row3Num}:P{row3Num}");
+                EnsureMergeCell(sheet, $"{dayCol}{row3Num}:R{row3Num}");
+                totalReplacements += 3;
+            }
+        }
+
+        // 4. and subsequent measurements: insert clean rows below Row 15 without duplicating left-side columns
+        if (measureCount > 3)
+        {
+            int extraCount = measureCount - 3;
+            uint shiftStart = originalRowNumber + 3;
+            ShiftRowNumbers(sheetData, shiftStart, extraCount);
+            ShiftMergeCells(sheet, shiftStart, extraCount);
+
+            for (int i = 3; i < measureCount; i++)
+            {
+                uint extraRowNum = (uint)(originalRowNumber + i);
+                var extraRow = new Row { RowIndex = extraRowNum };
+
+                var cDepth = new Cell { CellReference = $"{depthCol}{extraRowNum}" };
+                if (depthStyle.HasValue) cDepth.StyleIndex = depthStyle.Value;
+                SetCellValue(cDepth, well.Measurements[i].WaterDepth ?? string.Empty, doc);
+                extraRow.AppendChild(cDepth);
+
+                var cDate = new Cell { CellReference = $"{dateCol}{extraRowNum}" };
+                if (dateStyle.HasValue) cDate.StyleIndex = dateStyle.Value;
+                SetCellValue(cDate, well.Measurements[i].MeasurementDate ?? string.Empty, doc);
+                extraRow.AppendChild(cDate);
+
+                var cDay = new Cell { CellReference = $"{dayCol}{extraRowNum}" };
+                if (dayStyle.HasValue) cDay.StyleIndex = dayStyle.Value;
+                SetCellValue(cDay, well.Measurements[i].Day ?? string.Empty, doc);
+                extraRow.AppendChild(cDay);
+
+                var afterRow = sheetData.Elements<Row>().FirstOrDefault(r => r.RowIndex?.Value > extraRowNum);
+                if (afterRow != null)
+                    sheetData.InsertBefore(extraRow, afterRow);
+                else
+                    sheetData.AppendChild(extraRow);
+
+                EnsureMergeCell(sheet, $"{dateCol}{extraRowNum}:P{extraRowNum}");
+                EnsureMergeCell(sheet, $"{dayCol}{extraRowNum}:R{extraRowNum}");
+                totalReplacements += 3;
+            }
+        }
 
         return totalReplacements;
+    }
+
+    private static Cell GetOrCreateCell(Row row, string colLetter, uint rowIndex, uint? fallbackStyle = null)
+    {
+        string cellRef = $"{colLetter}{rowIndex}";
+        var cell = row.Elements<Cell>().FirstOrDefault(c => string.Equals(c.CellReference?.Value, cellRef, StringComparison.OrdinalIgnoreCase));
+        if (cell != null) return cell;
+
+        var newCell = new Cell { CellReference = cellRef };
+        if (fallbackStyle.HasValue)
+        {
+            newCell.StyleIndex = fallbackStyle.Value;
+        }
+
+        Cell? refCell = null;
+        int targetColIdx = ColumnLetterToIndex(colLetter);
+        foreach (var existing in row.Elements<Cell>())
+        {
+            string existingCol = GetColumnReference(existing.CellReference?.Value ?? "");
+            if (ColumnLetterToIndex(existingCol) > targetColIdx)
+            {
+                refCell = existing;
+                break;
+            }
+        }
+
+        if (refCell != null)
+            row.InsertBefore(newCell, refCell);
+        else
+            row.AppendChild(newCell);
+
+        return newCell;
+    }
+
+    private static int ColumnLetterToIndex(string col)
+    {
+        int index = 0;
+        foreach (char c in col.ToUpperInvariant())
+        {
+            if (c >= 'A' && c <= 'Z')
+                index = index * 26 + (c - 'A' + 1);
+        }
+        return index;
+    }
+
+    private static void EnsureMergeCell(Worksheet sheet, string reference)
+    {
+        var mergeCells = sheet.GetFirstChild<MergeCells>();
+        if (mergeCells == null)
+        {
+            mergeCells = new MergeCells();
+            sheet.InsertAfter(mergeCells, sheet.GetFirstChild<SheetData>());
+        }
+
+        if (!mergeCells.Elements<MergeCell>().Any(mc => string.Equals(mc.Reference?.Value, reference, StringComparison.OrdinalIgnoreCase)))
+        {
+            mergeCells.AppendChild(new MergeCell { Reference = reference });
+        }
     }
 
     
