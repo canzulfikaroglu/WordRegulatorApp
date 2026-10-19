@@ -215,7 +215,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                                                 rowText.Contains("{{DAY}}") ||
                                                 rowText.Contains("{{GUN}}");
 
-                // Identify column index for Sondaj No from template row if this is a water measurement table
                 int wellNoColIndex = -1;
                 if (isWaterMeasurementTable)
                 {
@@ -257,7 +256,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                             wellRows.Add(newRow);
                         }
 
-                        // If this well has multiple measurements, vertically merge only the Sondaj No column
                         if (wellRows.Count > 1 && wellNoColIndex >= 0)
                         {
                             ApplyVerticalMerge(wellRows, wellNoColIndex);
@@ -414,12 +412,10 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
 
                     if (isHTable)
                     {
-                        // First table: {{H}} / {{LAYER_VS}} / {{SERIES_RESULT}} — uses Layers with Vs30 h-calc
                         double sumThickness = 0;
                         bool firstValidInserted = false;
                         var insertedHRows = new List<TableRow>();
 
-                        // Identify which column index contains the Vs30 result before cloning
                         int vs30ColIndex = -1;
                         var tplCells = templateDataRow.Elements<TableCell>().ToList();
                         for (int ci = 0; ci < tplCells.Count; ci++)
@@ -439,18 +435,19 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
 
                             if (j < s.Layers.Count - 1)
                             {
-                                // effectiveStart: if Df falls within this layer, start from Df; otherwise layer's own start
                                 double effectiveStart = Math.Max(s.Df, l.StartDepth);
                                 h_i = Math.Max(0, l.EndDepth - effectiveStart);
                             }
                             else
                             {
-                                h_i = Math.Max(0, 30.0 - sumThickness);
+                                if (s.Df >= l.EndDepth)
+                                    h_i = 0;
+                                else
+                                    h_i = Math.Max(0, 30.0 - sumThickness);
                             }
 
                             sumThickness += h_i;
 
-                            // Skip layers that contribute nothing
                             if (h_i <= 0) continue;
 
                             bool isFirstRow = !firstValidInserted;
@@ -463,13 +460,11 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                             insertedHRows.Add(newRow);
                         }
 
-                        // Apply vertical merge on the Vs30 column so the value spans all rows
                         if (vs30ColIndex >= 0 && insertedHRows.Count > 1)
                             ApplyVerticalMerge(insertedHRows, vs30ColIndex);
                     }
                     else if (isVsurTable)
                     {
-                        // Second table: {{LAYER_RANGE}} / {{LAYER_VSUR}} — uses Layers2
                         var layers2 = s.Layers2.Count > 0 ? s.Layers2 : s.Layers;
                         for (int j = 0; j < layers2.Count; j++)
                         {
@@ -482,7 +477,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                     }
                     else
                     {
-                        // Generic LAYER_ table — uses Layers
                         for (int j = 0; j < s.Layers.Count; j++)
                         {
                             var l = s.Layers[j];
@@ -675,7 +669,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 }
 
                 
-                // Normalize any split placeholders in all paragraphs of this cloned table
                 foreach (var p in cloned.Descendants<Paragraph>())
                 {
                     NormalizeSplitPlaceholders(p);
@@ -686,7 +679,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                     ReplaceLiteralHeaders(cloned, num1, num2, s2 != null);
                 }
 
-                // If odd number of series and s2 is null, trim the right-hand side (unused 2nd series)
                 if (s2 == null)
                 {
                     TrimSeismicTableForSingleSeries(cloned);
@@ -725,11 +717,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         return totalReplacements;
     }
 
-    /// <summary>
-    /// Applies OpenXML vertical cell merge to a specific column across a list of rows.
-    /// The first row gets VerticalMerge(Restart) and its content is vertically centered.
-    /// Subsequent rows get VerticalMerge() (Continue) — their content is hidden by the merge.
-    /// </summary>
     private static void ApplyVerticalMerge(List<TableRow> rows, int colIndex)
     {
         for (int r = 0; r < rows.Count; r++)
@@ -739,7 +726,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
 
             var cell = cells[colIndex];
 
-            // Ensure TableCellProperties exists
             var tcp = cell.GetFirstChild<TableCellProperties>();
             if (tcp == null)
             {
@@ -747,16 +733,13 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 cell.PrependChild(tcp);
             }
 
-            // Remove any existing VerticalMerge
             foreach (var vm in tcp.Elements<VerticalMerge>().ToList())
                 vm.Remove();
 
             if (r == 0)
             {
-                // First row: restart the merge span, content is kept
                 tcp.AppendChild(new VerticalMerge { Val = MergedCellValues.Restart });
 
-                // Vertically center the content in the merged cell
                 var vAlign = tcp.GetFirstChild<TableCellVerticalAlignment>();
                 if (vAlign == null)
                     tcp.AppendChild(new TableCellVerticalAlignment { Val = TableVerticalAlignmentValues.Center });
@@ -765,10 +748,8 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             }
             else
             {
-                // Subsequent rows: continue the merge (content is suppressed by Word)
                 tcp.AppendChild(new VerticalMerge());
 
-                // Clear paragraph content so Word doesn't show stale text in merged cells
                 foreach (var para in cell.Elements<Paragraph>())
                 {
                     foreach (var run in para.Elements<Run>().ToList())
@@ -807,11 +788,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         }
     }
 
-    /// <summary>
-    /// When there is an odd number of seismic series (e.g. 1 or 3 series),
-    /// the last table clone for the odd series (where s2 == null) is trimmed so that
-    /// the right-hand columns (allocated for the non-existent even series) are deleted.
-    /// </summary>
     private static void TrimSeismicTableForSingleSeries(Table table)
     {
         var rows = table.Elements<TableRow>().ToList();
@@ -820,14 +796,10 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         var grid = table.GetFirstChild<TableGrid>();
         var gridCols = grid?.Elements<GridColumn>().ToList() ?? new List<GridColumn>();
 
-        // Check whether this is a 5-column modulus table (or similar) or a 4-column coordinate table
         int maxCells = rows.Max(r => r.Elements<TableCell>().Count());
 
         if (gridCols.Count == 5 || maxCells >= 5)
         {
-            // Modulus table (Poisson, Shear, Bulk, Elasticity):
-            // Row 0 has 3 cells: C0 (label/empty), C1 (span 2 for Series 1), C2 (span 2 for Series 2).
-            // Rows 1-3 have 5 cells: C0 (label), C1-C2 (Tabaka 1-2 for Series 1), C3-C4 (Tabaka 1-2 for Series 2).
             foreach (var row in rows)
             {
                 var cells = row.Elements<TableCell>().ToList();
@@ -838,12 +810,10 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 }
                 else if (cells.Count == 3)
                 {
-                    // Header row: delete C2 (Series 2)
                     cells[cells.Count - 1].Remove();
                 }
                 else if (cells.Count == 1)
                 {
-                    // Full row span if any
                     var gs = cells[0].GetFirstChild<TableCellProperties>()?.GetFirstChild<GridSpan>();
                     if (gs?.Val != null && gs.Val.Value > 2)
                     {
@@ -852,7 +822,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 }
             }
 
-            // Remove last 2 grid columns
             int removedColsWidth = 0;
             if (gridCols.Count >= 2)
             {
@@ -864,7 +833,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 }
             }
 
-            // Adjust table width if specified in dxa
             var tblW = table.GetFirstChild<TableProperties>()?.GetFirstChild<TableWidth>();
             if (tblW?.Type?.Value == TableWidthUnitValues.Dxa && int.TryParse(tblW.Width?.Value, out int tw))
             {
@@ -876,11 +844,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         }
         else if (gridCols.Count == 4 || maxCells == 4)
         {
-            // Coordinate table (Table 6):
-            // Row 0 has 3 cells: C0 (span 2), C1 (SS-1), C2 (SS-2).
-            // Rows 1-2 have 4 cells: C0 (label), C1 (sub-label), C2 (SS-1), C3 (SS-2).
-            // Rows 3-5 have 3 cells: C0 (span 2), C1 (SS-1), C2 (SS-2).
-            // In all rows, the last cell belongs to Series 2.
             foreach (var row in rows)
             {
                 var cells = row.Elements<TableCell>().ToList();
@@ -890,7 +853,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 }
             }
 
-            // Remove last grid column
             int removedColsWidth = 0;
             if (gridCols.Count >= 1)
             {
@@ -900,7 +862,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 lastCol.Remove();
             }
 
-            // Adjust table width if specified in dxa
             var tblW = table.GetFirstChild<TableProperties>()?.GetFirstChild<TableWidth>();
             if (tblW?.Type?.Value == TableWidthUnitValues.Dxa && int.TryParse(tblW.Width?.Value, out int tw))
             {
@@ -925,7 +886,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         d["SERIM_1_NO"] = num1.ToString();
         d["SERIM_2_NO"] = s2 != null ? num2.ToString() : "—";
 
-        // Aliases with Turkish İ and alternate formats
         d["SERİM_1_NAME"] = $"{num1}. Serim";
         d["SERİM_2_NAME"] = s2 != null ? $"{num2}. Serim" : "—";
         d["SERİM_1_NO"] = num1.ToString();
@@ -972,7 +932,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         d["SS_1_ELASTICITY1"] = e1_1;
         d["SS_1_ELASTICITY2"] = e2_1;
 
-        // Değerlendirmeler (SS_1)
         d["SS_1_POISSON1_EVAL"]    = p1_1_eval;
         d["SS_1_POISSON2_EVAL"]    = p2_1_eval;
         d["SS_1_SHEAR1_EVAL"]      = sh1_1_eval;
@@ -982,7 +941,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         d["SS_1_ELASTICITY1_EVAL"] = e1_1_eval;
         d["SS_1_ELASTICITY2_EVAL"] = e2_1_eval;
 
-        // Alternatif aliaslar (SS_1)
         d["SS_1_POISSON1_DESC"] = p1_1_eval;
         d["SS_1_POISSON2_DESC"] = p2_1_eval;
         d["SS_1_POISSON1_DEG"]  = p1_1_eval;
@@ -1082,7 +1040,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         d["SS_2_ELASTICITY1"] = e1_2;
         d["SS_2_ELASTICITY2"] = e2_2;
 
-        // Değerlendirmeler (SS_2)
         d["SS_2_POISSON1_EVAL"]    = p1_2_eval;
         d["SS_2_POISSON2_EVAL"]    = p2_2_eval;
         d["SS_2_SHEAR1_EVAL"]      = sh1_2_eval;
@@ -1092,7 +1049,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         d["SS_2_ELASTICITY1_EVAL"] = e1_2_eval;
         d["SS_2_ELASTICITY2_EVAL"] = e2_2_eval;
 
-        // Alternatif aliaslar (SS_2)
         d["SS_2_POISSON1_DESC"] = p1_2_eval;
         d["SS_2_POISSON2_DESC"] = p2_2_eval;
         d["SS_2_POISSON1_DEG"]  = p1_2_eval;
@@ -1316,7 +1272,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             }
 
             
-            // Identify column indices for Sondaj No and Zemin Kotu from templateRow
             int nameColIndex = -1;
             int kotColIndex = -1;
             var tplCells = templateRow.Elements<TableCell>().ToList();
@@ -1355,7 +1310,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                     isFirstRowOfWell = false;
                 }
 
-                // If this well has multiple pressuremeter rows, vertically merge Sondaj No and Zemin Kotu columns
                 if (wellRows.Count > 1)
                 {
                     if (nameColIndex >= 0) ApplyVerticalMerge(wellRows, nameColIndex);
@@ -1522,7 +1476,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             dict["TABAKA_VS"] = vsStr;
             dict["LAYER_VELOCITY"] = vsStr;
             dict["TABAKA_HIZ"] = vsStr;
-            // LAYER_VSUR is an alias used in the second (Vs Ortalama) table
             dict["LAYER_VSUR"] = vsStr;
 
             
@@ -1618,13 +1571,8 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         return count;
     }
 
-    /// <summary>
-    /// Ensures the given RunProperties explicitly specify Times New Roman 12pt (24 half-points).
-    /// This prevents Word from inheriting a different paragraph style when new runs are inserted.
-    /// </summary>
     private static void EnsureFontSize12(RunProperties rpr)
     {
-        // Font size: 24 half-points = 12pt
         var sz = rpr.GetFirstChild<FontSize>();
         if (sz == null)
         {
@@ -1641,7 +1589,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         }
         szCs.Val = "24";
 
-        // Font family: Times New Roman
         var fonts = rpr.GetFirstChild<RunFonts>();
         if (fonts == null)
         {
@@ -1653,10 +1600,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         fonts.ComplexScript = "Times New Roman";
     }
 
-    /// <summary>
-    /// Normalizes placeholders that have been split across multiple Text (<w:t>) elements
-    /// within runs in the same paragraph (common in Word documents edited by users).
-    /// </summary>
     private static void NormalizeSplitPlaceholders(Paragraph paragraph)
     {
         var texts = paragraph.Descendants<Text>().ToList();
@@ -1680,7 +1623,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         var matches = PlaceholderRegex.Matches(fullText);
         if (matches.Count == 0) return;
 
-        // Process matches in reverse order so character offsets before each match remain valid
         for (int m = matches.Count - 1; m >= 0; m--)
         {
             var match = matches[m];
@@ -1715,7 +1657,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 currentOffset += textLen;
             }
 
-            // Only normalize if the placeholder is actually split across different Text nodes
             if (firstIdx != -1 && lastIdx != -1 && firstIdx < lastIdx)
             {
                 string firstOriginal = texts[firstIdx].Text ?? "";
@@ -2013,7 +1954,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
 
             if (!hasType && !hasText) continue;
 
-            // Pattern 1: Both placeholders in the SAME paragraph
             if (hasType && hasText)
             {
                 blocks.Add(new FormationBlock
@@ -2027,7 +1967,6 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 continue;
             }
 
-            // Pattern 2: FORMATİONTYPE followed shortly by FORMATİONTEXT in separate paragraphs
             if (hasType)
             {
                 Paragraph? foundTextP = null;
@@ -2081,12 +2020,10 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 }
                 else
                 {
-                    // Isolated FORMATİONTYPE elsewhere in the report
                     continue;
                 }
             }
 
-            // Pattern 3: Isolated FORMATİONTEXT without any preceding FORMATİONTYPE
             if (hasText)
             {
                 blocks.Add(new FormationBlock

@@ -122,7 +122,6 @@ public partial class MainViewModel : ObservableObject
     {
         var selected = Formations.Where(f => f.IsSelected).Select(f => f.Formation).ToList();
 
-        // FORMATİONTYPE: only names, comma-separated (for inline use in other parts of report)
         var typeVar = Variables.FirstOrDefault(v => string.Equals(v.Key, "FORMAŞİONTYPE", StringComparison.OrdinalIgnoreCase)
                                                  || string.Equals(v.Key, "FORMATİONTYPE", StringComparison.OrdinalIgnoreCase));
         if (typeVar != null)
@@ -131,9 +130,6 @@ public partial class MainViewModel : ObservableObject
             _userOverriddenKeys.Add(typeVar.Key);
         }
 
-        // FORMATİONTEXT:
-        // When 1 formation: only description
-        // When >1 formations: alternating Name / Description lines per formation
         var textVar = Variables.FirstOrDefault(v => string.Equals(v.Key, "FORMAŞİONTEXT", StringComparison.OrdinalIgnoreCase)
                                                  || string.Equals(v.Key, "FORMATİONTEXT", StringComparison.OrdinalIgnoreCase));
         if (textVar != null)
@@ -1018,7 +1014,6 @@ public partial class MainViewModel : ObservableObject
                 replacements[$"ELASTİCİTYMODULUS1S{sNum}"] = series.ElasticityModulusLayer1;
                 replacements[$"ELASTİCİTYMODULUS2S{sNum}"] = series.ElasticityModulusLayer2;
 
-                // Otomatik Değerlendirmeler
                 string pEval1 = SeismicEvaluationHelper.EvaluatePoisson(series.PoissonLayer1);
                 string pEval2 = SeismicEvaluationHelper.EvaluatePoisson(series.PoissonLayer2);
                 string shEval1 = SeismicEvaluationHelper.EvaluateShearModulus(series.ShearModulusLayer1);
@@ -1440,7 +1435,6 @@ public partial class MainViewModel : ObservableObject
         {
             var variablesDict = Variables.ToDictionary(v => v.Key, v => v.Value);
 
-            // Serialize DrillingWells
             var wellsData = DrillingWells.Select(w => new
             {
                 WellName = w.WellName,
@@ -1470,7 +1464,6 @@ public partial class MainViewModel : ObservableObject
                 }).ToList()
             }).ToList();
 
-            // Serialize Vs30 Layers
             var vs30LayersData = Vs30Layers.Select(l => new
             {
                 StartDepth = l.StartDepthInput,
@@ -1478,7 +1471,6 @@ public partial class MainViewModel : ObservableObject
                 Velocity = l.VelocityInput
             }).ToList();
 
-            // Serialize Vs30 Series
             var vs30SeriesData = Vs30Series.Select(s => new
             {
                 KotStart = s.KotStartInput,
@@ -1505,7 +1497,6 @@ public partial class MainViewModel : ObservableObject
                 }).ToList()
             }).ToList();
 
-            // Serialize Microtremor Measurements
             var microtremorData = MicrotremorMeasurements.Select(m => new
             {
                 T0 = m.T0,
@@ -1517,7 +1508,6 @@ public partial class MainViewModel : ObservableObject
                 VerticalCoordinate = m.VerticalCoordinate
             }).ToList();
 
-            // Serialize selected formations
             var selectedFormations = Formations.Where(f => f.IsSelected).Select(f => f.Name).ToList();
 
             var state = new
@@ -1557,7 +1547,6 @@ public partial class MainViewModel : ObservableObject
             using var doc = System.Text.Json.JsonDocument.Parse(json);
             var state = doc.RootElement;
 
-            // --- Scalar settings ---
             if (state.TryGetProperty("BaseTopLevelInput", out var b)) BaseTopLevelInput = b.GetString() ?? BaseTopLevelInput;
             if (state.TryGetProperty("DfInput", out var d)) DfInput = d.GetString() ?? DfInput;
             if (state.TryGetProperty("OutputFolderTitle", out var ot)) OutputFolderTitle = ot.GetString() ?? OutputFolderTitle;
@@ -1568,12 +1557,10 @@ public partial class MainViewModel : ObservableObject
             }
             if (state.TryGetProperty("SelectedVs30LayerCount", out var sl)) SelectedVs30LayerCount = sl.GetInt32();
 
-            // --- Counts (must come before restoring per-item data) ---
             if (state.TryGetProperty("DrillingWellCountInput", out var dc)) DrillingWellCountInput = dc.GetString() ?? DrillingWellCountInput;
             if (state.TryGetProperty("Vs30SeriesCountInput", out var vc)) Vs30SeriesCountInput = vc.GetString() ?? Vs30SeriesCountInput;
             if (state.TryGetProperty("MicrotremorCountInput", out var mc)) MicrotremorCountInput = mc.GetString() ?? MicrotremorCountInput;
 
-            // --- Vs30 Layers ---
             if (state.TryGetProperty("Vs30Layers", out var layersEl) && layersEl.ValueKind == System.Text.Json.JsonValueKind.Array)
             {
                 var layerArr = layersEl.EnumerateArray().ToList();
@@ -1587,7 +1574,6 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            // --- Vs30 Series ---
             if (state.TryGetProperty("Vs30Series", out var seriesEl) && seriesEl.ValueKind == System.Text.Json.JsonValueKind.Array)
             {
                 var seriesArr = seriesEl.EnumerateArray().ToList();
@@ -1611,7 +1597,6 @@ public partial class MainViewModel : ObservableObject
                     if (el.TryGetProperty("BulkModulusLayer2", out var bk2)) s.BulkModulusLayer2 = bk2.GetString() ?? s.BulkModulusLayer2;
                     if (el.TryGetProperty("ElasticityModulusLayer1", out var em1)) s.ElasticityModulusLayer1 = em1.GetString() ?? s.ElasticityModulusLayer1;
                     if (el.TryGetProperty("ElasticityModulusLayer2", out var em2)) s.ElasticityModulusLayer2 = em2.GetString() ?? s.ElasticityModulusLayer2;
-                    // Layers2
                     if (el.TryGetProperty("Layers2", out var l2El) && l2El.ValueKind == System.Text.Json.JsonValueKind.Array)
                     {
                         var l2Arr = l2El.EnumerateArray().ToList();
@@ -1626,7 +1611,6 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            // --- Drilling Wells ---
             if (state.TryGetProperty("DrillingWells", out var wellsEl) && wellsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
             {
                 var wellArr = wellsEl.EnumerateArray().ToList();
@@ -1646,7 +1630,6 @@ public partial class MainViewModel : ObservableObject
                     if (el.TryGetProperty("FinishDate", out var fd)) w.FinishDate = fd.GetString() ?? w.FinishDate;
                     if (el.TryGetProperty("SelectedMeasurementCount", out var smc)) w.SelectedMeasurementCount = smc.GetInt32();
                     if (el.TryGetProperty("HasPressuremeterTest", out var hpt)) w.HasPressuremeterTest = hpt.GetBoolean();
-                    // Measurements
                     if (el.TryGetProperty("Measurements", out var measEl) && measEl.ValueKind == System.Text.Json.JsonValueKind.Array)
                     {
                         var measArr = measEl.EnumerateArray().ToList();
@@ -1658,11 +1641,9 @@ public partial class MainViewModel : ObservableObject
                             if (measArr[j].TryGetProperty("Day", out var dy)) m.Day = dy.GetString() ?? m.Day;
                         }
                     }
-                    // Pressurometer Rows
                     if (el.TryGetProperty("PressuremeterRows", out var pmEl) && pmEl.ValueKind == System.Text.Json.JsonValueKind.Array)
                     {
                         var pmArr = pmEl.EnumerateArray().ToList();
-                        // Add missing rows
                         while (w.PressuremeterRows.Count < pmArr.Count)
                             w.AddPressuremeterRowCommand.Execute(null);
                         for (int j = 0; j < Math.Min(pmArr.Count, w.PressuremeterRows.Count); j++)
@@ -1677,7 +1658,6 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            // --- Microtremor Measurements ---
             if (state.TryGetProperty("MicrotremorMeasurements", out var mtEl) && mtEl.ValueKind == System.Text.Json.JsonValueKind.Array)
             {
                 var mtArr = mtEl.EnumerateArray().ToList();
@@ -1695,7 +1675,6 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            // --- Formation Selections ---
             if (state.TryGetProperty("SelectedFormations", out var sfEl) && sfEl.ValueKind == System.Text.Json.JsonValueKind.Array)
             {
                 var selectedNames = sfEl.EnumerateArray()
@@ -1707,7 +1686,6 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            // --- Residential Suitability Selection ---
             if (state.TryGetProperty("SelectedResidentialSuitability", out var rsEl))
             {
                 var rsName = rsEl.GetString();
@@ -1721,7 +1699,6 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            // --- Variables (overrides) ---
             if (state.TryGetProperty("Variables", out var dictEl))
             {
                 foreach (var prop in dictEl.EnumerateObject())

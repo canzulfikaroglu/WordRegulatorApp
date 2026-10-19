@@ -188,7 +188,6 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
 
         uint originalRowNumber = templateRow.RowIndex?.Value ?? (uint)(templateRowIndex + 1);
 
-        // Detect column letters for Depth, Date, and Day from templateRow
         string depthCol = "N";
         string dateCol = "O";
         string dayCol = "Q";
@@ -251,7 +250,6 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
             return 3;
         }
 
-        // 1. Measurement: Row 13 (templateRow in-place)
         SetCellValue(cellDepth1, well.Measurements[0].WaterDepth ?? string.Empty, doc);
         SetCellValue(cellDate1, well.Measurements[0].MeasurementDate ?? string.Empty, doc);
         SetCellValue(cellDay1, well.Measurements[0].Day ?? string.Empty, doc);
@@ -260,7 +258,6 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
         replacedKeys.Add("DAY");
         totalReplacements += 3;
 
-        // 2. Measurement: Row 14 (in-place in pre-allocated row slot)
         if (measureCount > 1)
         {
             uint row2Num = originalRowNumber + 1;
@@ -280,7 +277,6 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
             }
         }
 
-        // 3. Measurement: Row 15 (in-place in pre-allocated row slot)
         if (measureCount > 2)
         {
             uint row3Num = originalRowNumber + 2;
@@ -300,7 +296,6 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
             }
         }
 
-        // 4. and subsequent measurements: insert clean rows below Row 15 without duplicating left-side columns
         if (measureCount > 3)
         {
             int extraCount = measureCount - 3;

@@ -413,16 +413,7 @@ public partial class Vs30SeriesViewModel : ObservableObject
     {
         for (int i = 0; i < Layers.Count; i++)
         {
-            if (i == 0)
-            {
-                
-                Layers[i].IsExcluded = df >= Layers[i].EndDepth;
-            }
-            else
-            {
-                
-                Layers[i].IsExcluded = false;
-            }
+            Layers[i].IsExcluded = df >= Layers[i].EndDepth;
         }
     }
 

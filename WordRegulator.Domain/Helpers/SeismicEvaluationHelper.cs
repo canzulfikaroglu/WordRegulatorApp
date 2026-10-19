@@ -4,12 +4,6 @@ namespace WordRegulator.Domain.Helpers;
 
 public static class SeismicEvaluationHelper
 {
-    /// <summary>
-    /// Poisson Oranı Değerlendirmesi:
-    /// 0,0 - 0,25  => Gözeneksiz
-    /// 0,26 - 0,35 => Orta Gözenekli
-    /// 0,36 - 0,50 => Gözenekli
-    /// </summary>
     public static string EvaluatePoisson(string? input)
     {
         if (string.IsNullOrWhiteSpace(input)) return string.Empty;
@@ -23,13 +17,6 @@ public static class SeismicEvaluationHelper
         return "Gözenekli";
     }
 
-    /// <summary>
-    /// Kayma Modülü (kg/cm²) Değerlendirmesi:
-    /// 0 - 600      => Gevşek
-    /// 600 - 3000   => Orta Sağlam
-    /// 3000 - 10000 => Sağlam
-    /// >= 10000     => Çok Sağlam
-    /// </summary>
     public static string EvaluateShearModulus(string? input)
     {
         if (string.IsNullOrWhiteSpace(input)) return string.Empty;
@@ -43,14 +30,6 @@ public static class SeismicEvaluationHelper
         return "Çok Sağlam";
     }
 
-    /// <summary>
-    /// Bulk Modülü (kg/cm²) Sıkışma Sınıfları:
-    /// &lt; 400            => Çok Az
-    /// 400 - 10000        => Az
-    /// 10000 - 40000      => Orta
-    /// 40000 - 100000     => Yüksek
-    /// >= 100000          => Çok Yüksek
-    /// </summary>
     public static string EvaluateBulkModulus(string? input)
     {
         if (string.IsNullOrWhiteSpace(input)) return string.Empty;
@@ -65,13 +44,6 @@ public static class SeismicEvaluationHelper
         return "Çok Yüksek";
     }
 
-    /// <summary>
-    /// Elastisite Modülü (kg/cm²) Değerlendirmesi:
-    /// 0 - 2000     => Gevşek
-    /// 2000 - 10000 => Orta Sağlam
-    /// 10000 - 30000 => Sağlam
-    /// >= 30000     => Çok Sağlam
-    /// </summary>
     public static string EvaluateElasticityModulus(string? input)
     {
         if (string.IsNullOrWhiteSpace(input)) return string.Empty;

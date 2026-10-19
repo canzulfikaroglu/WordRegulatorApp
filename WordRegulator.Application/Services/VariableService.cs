@@ -102,14 +102,15 @@ public class VariableService : IVariableService
 
             if (i < layerList.Count - 1)
             {
-                // effectiveStart: if Df falls within this layer, start from Df; otherwise use layer's own start
                 double effectiveStart = Math.Max(df, layer.StartDepth);
                 h_i = Math.Max(0, layer.EndDepth - effectiveStart);
             }
             else
             {
-                // Last layer fills up to 30 m from whatever was already accumulated
-                h_i = Math.Max(0, 30.0 - sumThickness);
+                if (df >= layer.EndDepth)
+                    h_i = 0;
+                else
+                    h_i = Math.Max(0, 30.0 - sumThickness);
             }
 
             sumThickness += h_i;
@@ -293,7 +294,6 @@ public class VariableService : IVariableService
         double sumTime = 0;
         var formulaParts = new List<string>();
 
-        // h1 = thickness of the first layer that is actually included (h > 0)
         double h1Value = -1;
 
         for (int i = 0; i < layerList.Count; i++)
@@ -304,14 +304,15 @@ public class VariableService : IVariableService
 
             if (i < layerList.Count - 1)
             {
-                // effectiveStart: if Df falls within this layer, start from Df; otherwise use layer's own start
                 double effectiveStart = Math.Max(df, layer.StartDepth);
                 h_i = Math.Max(0, layer.EndDepth - effectiveStart);
             }
             else
             {
-                // Last layer fills up to 30 m
-                h_i = Math.Max(0, 30.0 - sumThickness);
+                if (df >= layer.EndDepth)
+                    h_i = 0;
+                else
+                    h_i = Math.Max(0, 30.0 - sumThickness);
             }
 
             sumThickness += h_i;
@@ -329,15 +330,13 @@ public class VariableService : IVariableService
             result[$"VS30_H{num}"]     = hStr;
             result[$"VS30_VS{num}"]    = vsStr;
 
-            // Only add to formula if this layer contributes (h > 0)
             if (h_i > 0)
             {
                 formulaParts.Add($"({hStr}/{vsStr})");
-                if (h1Value < 0) h1Value = h_i; // record first included layer's h
+                if (h1Value < 0) h1Value = h_i;
             }
         }
 
-        // VS30_H1 = h of the first included (non-zero) layer, used for SERIES_H1 display
         result["VS30_H1"] = (h1Value >= 0 ? h1Value : 0).ToString("F2", TrCulture);
 
         string formulaBody = string.Join("+", formulaParts);

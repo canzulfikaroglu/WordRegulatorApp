@@ -197,7 +197,7 @@
                             
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
                                 <TextBlock Text="Temel Üst Kotu:" FontSize="12" Foreground="{StaticResource AccentPurpleBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBox Text="{Binding BaseTopLevelInput, UpdateSourceTrigger=PropertyChanged}" Width="135" Style="{StaticResource DarkTextBoxStyle}" ToolTip="Temel Üst Kotu (örn: -3,24(35,57) veya 35,57). Alttaki {{FROMTHEBASETOPLEVEL}} ile senkronizedir."/>
+                                <TextBox Text="{Binding BaseTopLevelInput, UpdateSourceTrigger=PropertyChanged}" Width="135" Style="{StaticResource DarkTextBoxStyle}" ToolTip="Temel Üst Kotu (örn: -3,24(35,57) veya 35,57). Alttaki Temel Üst Kotu Bilgisi ile senkronizedir."/>
                             </StackPanel>
 
                             
@@ -412,17 +412,11 @@
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
 
-                                            <!-- İkinci Tabaka Seti (Vs Ort. Tablosu için - LAYER_VSUR) -->
                                             <Border Margin="0,10,0,0" Background="#0A1A1A" CornerRadius="8" Padding="10,8" BorderBrush="#0D9488" BorderThickness="1">
                                                 <StackPanel>
                                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                                         <TextBlock Text="📊 " FontSize="12"/>
                                                         <TextBlock Text="Vs Ortalama Tablosu İçin Tabaka Seti 2" FontSize="11" FontWeight="Bold" Foreground="#14B8A6"/>
-                                                        <TextBlock Text=" ({{LAYER_VSUR}} → 2. tablo)" FontSize="10" Foreground="#5EEAD4" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                                                        <StackPanel Orientation="Horizontal" Margin="16,0,0,0">
-                                                            <TextBlock Text="Tabaka Sayısı:" FontSize="10" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                            <ComboBox ItemsSource="{Binding LayerCountOptions2}" SelectedItem="{Binding SelectedLayerCount2}" Width="55" Height="22" FontSize="10"/>
-                                                        </StackPanel>
                                                     </StackPanel>
                                                     <ItemsControl ItemsSource="{Binding Layers2}">
                                                         <ItemsControl.ItemsPanel>
@@ -915,10 +909,8 @@
                 </Border>
 
                 
-                <!-- Formasyon Tipi & Yerleşime Uygunluk -->
                 <Border Background="{StaticResource PanelDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,16" BorderBrush="#14B8A6" BorderThickness="1">
                     <StackPanel>
-                        <!-- Formasyon Tipi Bölümü -->
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -932,7 +924,7 @@
                                     </Border>
                                     <TextBlock Text="Formasyon Tipi:" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <TextBlock Text="Birden fazla seçebilirsiniz. Seçimleriniz {{FORMATİONTYPE}} ve {{FORMATİONTEXT}} değişkenlerine otomatik yansır." FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                <TextBlock Text="Birden fazla seçebilirsiniz. Seçimleriniz Formasyon Tipi ve Formasyon Açıklaması değişkenlerine otomatik yansır." FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
                             </StackPanel>
                             
                             <ItemsControl Grid.Column="1" ItemsSource="{Binding Formations}">
@@ -950,10 +942,8 @@
                             </ItemsControl>
                         </Grid>
 
-                        <!-- Ayırıcı Çizgi -->
                         <Border Height="1" Background="#22333B" Margin="0,14,0,14"/>
 
-                        <!-- Yerleşime Uygunluk (RESİDENTİALSUİTABİLİTY) Bölümü -->
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -967,7 +957,7 @@
                                     </Border>
                                     <TextBlock Text="Yerleşime Uygunluk:" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <TextBlock Text="Seçiminiz {{RESİDENTİALSUİTABİLİTY}} değişkenine otomatik yansır." FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                <TextBlock Text="Seçiminiz Yerleşime Uygunluk değişkenine otomatik yansır." FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -1066,12 +1056,7 @@
                                     </Grid>
 
                                     
-                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
-                                        <Border Background="#13131A" CornerRadius="4" Padding="5,2" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
-                                            <TextBlock Text="{Binding Key, StringFormat='\{\{\{0\}\}\}'}" FontSize="11" FontFamily="Consolas, Courier New" Foreground="{StaticResource AccentCyanBrush}"/>
-                                        </Border>
-                                        <TextBlock Text="{Binding Hint}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="8,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    </StackPanel>
+                                    <TextBlock Grid.Row="1" Text="{Binding Hint}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
 
                                     
                                     <TextBox Grid.Row="2" 
