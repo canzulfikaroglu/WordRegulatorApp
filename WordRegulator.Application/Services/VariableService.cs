@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using WordRegulator.Application.Interfaces;
 using WordRegulator.Domain.Entities;
 using WordRegulator.Domain.Enums;
@@ -43,6 +44,7 @@ public class VariableService : IVariableService
             new("MAXKOT", "En Yüksek Kot", "En yüksek kot", VariableCategory.Rapor, VariableType.Independent, "39.50", order: 24),
             new("MİNKOT", "En Düşük Kot", "En düşük kot", VariableCategory.Rapor, VariableType.Independent, "36.20", order: 25),
             new("AREAOFSTUDY", "İnceleme Alanı (m²)", "İnceleme alanı (m²)", VariableCategory.Rapor, VariableType.Independent, "500", order: 26),
+            new("WVALUES", "Ayrışma Derecesi (W Değerleri)", "Sondaj kuyuları açıklamalarından filtrelenen W değerleri", VariableCategory.Rapor, VariableType.Dependent, "", order: 27),
             new("HOUSINGPLAN", "Yapı Kat Planı", "Bodrum + Zemin + 5 Normal Kat + Çatı Arası", VariableCategory.Rapor, VariableType.Independent, "Bodrum + Zemin + 5 Normal Kat + Çatı Arası", order: 28),
             new("SS", "Ss İvme Katsayısı", "Ss ivme parametresi", VariableCategory.Rapor, VariableType.Independent, "", order: 29),
             new("S1", "S1 İvme Katsayısı", "S1 ivme parametresi", VariableCategory.Rapor, VariableType.Independent, "", order: 30),
@@ -125,12 +127,13 @@ public class VariableService : IVariableService
         return $"{Math.Round(vs30)} m/s";
     }
 
-    public (string totalDrilling, string groundwaterLevel) SummarizeDrillingWells(IEnumerable<DrillingWellItem> wells)
+    public (string totalDrilling, string groundwaterLevel, string wValues) SummarizeDrillingWells(IEnumerable<DrillingWellItem> wells)
     {
         var wellList = wells.ToList();
+        string wValues = ExtractWValues(wellList.Select(w => w.GroundwaterStatus));
         if (wellList.Count == 0)
         {
-            return ("0.00m", "Yeraltı suyuna rastlanmamıştır.");
+            return ("0.00m", "Yeraltı suyuna rastlanmamıştır.", wValues);
         }
 
         double sumDepth = wellList.Sum(w => w.DepthMeters);
@@ -174,7 +177,7 @@ public class VariableService : IVariableService
             ? string.Join(", ", statusParts)
             : "Yeraltı suyuna rastlanmamıştır.";
 
-        return (totalDrillingStr, groundwaterStr);
+        return (totalDrillingStr, groundwaterStr, wValues);
     }
 
     public IDictionary<string, string> GenerateDrillingWellReplacements(IEnumerable<DrillingWellItem> wells, double baseTopLevel = 0.0)
@@ -219,6 +222,7 @@ public class VariableService : IVariableService
             replacements[$"SK{idx}_DEPTH"] = $"{w.DepthMeters:F2}";
             replacements[$"SK{idx}_WATER"] = w.GroundwaterStatus;
             replacements[$"SK{idx}_RESULT"] = w.GroundwaterStatus;
+            replacements[$"SK{idx}_WVALUES"] = ExtractWValues(new[] { w.GroundwaterStatus });
             replacements[$"SK{idx}_COLLAPSED"] = w.IsCollapsed ? "Evet" : "Hayır";
             replacements[$"SK{idx}_IS_COLLAPSED"] = w.IsCollapsed ? "Evet" : "Hayır";
             replacements[$"SK{idx}_START"] = w.StartDate;
@@ -279,6 +283,7 @@ public class VariableService : IVariableService
         int seismicCount = Math.Max(0, wellList.Count - 1);
         replacements["SEISMIC_MEASUREMENT_COUNT"] = seismicCount.ToString();
         replacements["SEISMIC_COUNT"] = seismicCount.ToString();
+        replacements["WVALUES"] = ExtractWValues(wellList.Select(w => w.GroundwaterStatus));
 
         return replacements;
     }
@@ -349,4 +354,44 @@ public class VariableService : IVariableService
 
         return result;
     }
+
+    public static string ExtractWValues(IEnumerable<string?> texts)
+    {
+        var numbers = new HashSet<int>();
+        var regex = new Regex(@"\b[Ww]-?(\d+|VI|IV|V|III|II|I)\b", RegexOptions.Compiled);
+
+        foreach (var text in texts)
+        {
+            if (string.IsNullOrWhiteSpace(text)) continue;
+
+            var matches = regex.Matches(text);
+            foreach (Match m in matches)
+            {
+                var val = m.Groups[1].Value.ToUpperInvariant();
+                if (int.TryParse(val, out int num))
+                {
+                    numbers.Add(num);
+                }
+                else
+                {
+                    num = val switch
+                    {
+                        "I" => 1,
+                        "II" => 2,
+                        "III" => 3,
+                        "IV" => 4,
+                        "V" => 5,
+                        "VI" => 6,
+                        _ => 0
+                    };
+                    if (num > 0) numbers.Add(num);
+                }
+            }
+        }
+
+        if (numbers.Count == 0) return string.Empty;
+        return string.Join("-", numbers.OrderBy(n => n).Select(n => $"W{n}"));
+    }
+
+    string IVariableService.ExtractWValues(IEnumerable<string?> texts) => ExtractWValues(texts);
 }

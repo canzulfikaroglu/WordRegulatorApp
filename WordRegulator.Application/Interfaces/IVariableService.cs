@@ -7,7 +7,8 @@ public interface IVariableService
     IReadOnlyList<VariableDefinition> GetDefaultDefinitions();
     IDictionary<string, string> RecalculateDependentVariables(IDictionary<string, string> currentValues, HashSet<string> userOverriddenKeys);
     string CalculateVs30(IEnumerable<Vs30LayerItem> layers, double df);
-    (string totalDrilling, string groundwaterLevel) SummarizeDrillingWells(IEnumerable<DrillingWellItem> wells);
+    (string totalDrilling, string groundwaterLevel, string wValues) SummarizeDrillingWells(IEnumerable<DrillingWellItem> wells);
+    string ExtractWValues(IEnumerable<string?> texts);
     IDictionary<string, string> GenerateDrillingWellReplacements(IEnumerable<DrillingWellItem> wells, double baseTopLevel = 0.0);
     IDictionary<string, string> GenerateVs30Replacements(IEnumerable<Vs30LayerItem> layers, double df);
 }

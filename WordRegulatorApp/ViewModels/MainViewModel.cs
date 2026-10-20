@@ -530,7 +530,7 @@ public partial class MainViewModel : ObservableObject
             }).ToList()
         });
 
-        var (totalDrilling, groundwaterLevel) = _variableService.SummarizeDrillingWells(domainWells);
+        var (totalDrilling, groundwaterLevel, wValues) = _variableService.SummarizeDrillingWells(domainWells);
 
         var totalVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "TOTALDRİLLİNG", StringComparison.OrdinalIgnoreCase));
         if (totalVar != null)
@@ -542,6 +542,12 @@ public partial class MainViewModel : ObservableObject
         if (gwVar != null)
         {
             gwVar.Value = groundwaterLevel;
+        }
+
+        var wVar = Variables.FirstOrDefault(x => string.Equals(x.Key, "WVALUES", StringComparison.OrdinalIgnoreCase));
+        if (wVar != null)
+        {
+            wVar.Value = wValues;
         }
 
         var firstWell = DrillingWells.FirstOrDefault();

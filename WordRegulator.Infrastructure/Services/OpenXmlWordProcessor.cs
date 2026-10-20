@@ -1531,6 +1531,9 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             ["WELL_RESULT"] = w.GroundwaterStatus,
             ["WELL_WATER"] = w.GroundwaterStatus,
             ["SONDAJ_SONUC"] = w.GroundwaterStatus,
+            ["WELL_WVALUES"] = VariableService.ExtractWValues(new[] { w.GroundwaterStatus }),
+            ["SONDAJ_WVALUES"] = VariableService.ExtractWValues(new[] { w.GroundwaterStatus }),
+            ["SK_WVALUES"] = VariableService.ExtractWValues(new[] { w.GroundwaterStatus }),
 
             ["WELL_COLLAPSED"] = w.IsCollapsed ? "Evet" : "Hayır",
             ["WELL_IS_COLLAPSED"] = w.IsCollapsed ? "Evet" : "Hayır",

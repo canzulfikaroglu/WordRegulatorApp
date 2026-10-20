@@ -145,9 +145,9 @@ public partial class MainWindow : Window
         {
             if (file.Name.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
             {
-                var content = file.Value.GetProperty("content").GetString() ?? "{}";
-                var manifest = JsonSerializer.Deserialize<LicenseManifest>(content,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    var content = file.Value.GetProperty("content").GetString() ?? "{}";
+                    var manifest = JsonSerializer.Deserialize<LicenseManifest>(content,
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 _existingCommands = manifest?.Commands;
                 return manifest?.Licenses ?? [];
             }
