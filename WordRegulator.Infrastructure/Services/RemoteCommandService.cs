@@ -344,7 +344,22 @@ public class RemoteCommandService : IRemoteCommandService
 
         try
         {
-            var json = await _httpClient.GetStringAsync(url);
+            var separator = url.Contains('?') ? "&" : "?";
+            var cacheBusterUrl = $"{url}{separator}_t={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, cacheBusterUrl);
+            request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
+            {
+                NoCache = true,
+                NoStore = true,
+                MustRevalidate = true
+            };
+            request.Headers.Pragma.ParseAdd("no-cache");
+
+            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead);
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
 
             var manifest = new RemoteCommandManifest();

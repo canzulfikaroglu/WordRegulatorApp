@@ -71,29 +71,44 @@ public partial class App : Application
 
         var licenseService = ServiceProvider.GetRequiredService<ILicenseService>();
         var storedKey = licenseService.GetStoredLicenseKey();
+        bool isLicenseValid = false;
 
-        if (string.IsNullOrWhiteSpace(storedKey))
-        {
-            var licenseWindow = ServiceProvider.GetRequiredService<LicenseKeyWindow>();
-            licenseWindow.ShowDialog();
-
-            if (!licenseWindow.LicenseActivated)
-            {
-                Shutdown(1);
-                return;
-            }
-        }
-        else
+        if (!string.IsNullOrWhiteSpace(storedKey))
         {
             var result = await licenseService.CheckLicenseAsync(storedKey);
 
-            if (!result.IsValid)
+            if (result.IsValid)
+            {
+                isLicenseValid = true;
+            }
+            else
             {
                 MessageBox.Show(
                     result.Message,
                     "Lisans Geçersiz",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
+
+                if (result.Message.Contains("tanınmıyor", StringComparison.OrdinalIgnoreCase))
+                {
+                    licenseService.ClearStoredLicenseKey();
+                    storedKey = null;
+                }
+            }
+        }
+
+        if (!isLicenseValid)
+        {
+            var licenseWindow = ServiceProvider.GetRequiredService<LicenseKeyWindow>();
+            if (!string.IsNullOrWhiteSpace(storedKey))
+            {
+                licenseWindow.SetInitialKey(storedKey);
+            }
+
+            licenseWindow.ShowDialog();
+
+            if (!licenseWindow.LicenseActivated)
+            {
                 Shutdown(1);
                 return;
             }

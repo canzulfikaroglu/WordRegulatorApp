@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using WordRegulator.Domain.Interfaces;
 
@@ -13,6 +13,22 @@ public partial class LicenseKeyWindow : Window
     {
         InitializeComponent();
         _licenseService = licenseService;
+        Loaded += (_, _) =>
+        {
+            LicenseKeyTextBox.Focus();
+            if (!string.IsNullOrEmpty(LicenseKeyTextBox.Text))
+            {
+                LicenseKeyTextBox.SelectAll();
+            }
+        };
+    }
+
+    public void SetInitialKey(string? key)
+    {
+        if (!string.IsNullOrWhiteSpace(key))
+        {
+            LicenseKeyTextBox.Text = key;
+        }
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)

@@ -1,4 +1,4 @@
-﻿namespace WordRegulator.Domain.Interfaces;
+namespace WordRegulator.Domain.Interfaces;
 
 public interface ILicenseService
 {
@@ -8,6 +8,8 @@ public interface ILicenseService
     string? GetStoredLicenseKey();
 
     void StoreLicenseKey(string licenseKey);
+
+    void ClearStoredLicenseKey();
 }
 
 public class LicenseCheckResult

@@ -38,7 +38,9 @@ public class LicenseService : ILicenseService
             var result = ValidateKey(licenseKey, manifest);
 
             if (result.IsValid)
-                SaveCache(licenseKey); 
+                SaveCache(licenseKey);
+            else
+                ClearCache();
 
             return result;
         }
@@ -58,6 +60,28 @@ public class LicenseService : ILicenseService
     {
         using var key = Registry.CurrentUser.CreateSubKey(RegistryKeyPath, writable: true);
         key.SetValue(RegistryValueName, licenseKey);
+    }
+
+    public void ClearStoredLicenseKey()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(RegistryKeyPath, writable: true);
+            key?.DeleteValue(RegistryValueName, throwOnMissingValue: false);
+        }
+        catch { }
+
+        ClearCache();
+    }
+
+    private void ClearCache()
+    {
+        try
+        {
+            if (File.Exists(CacheFilePath))
+                File.Delete(CacheFilePath);
+        }
+        catch { }
     }
 
     private static string? GetGistUrl()
@@ -84,7 +108,22 @@ public class LicenseService : ILicenseService
 
     private static async Task<LicenseManifest> FetchManifestFromGistAsync(string gistUrl)
     {
-        var json = await _httpClient.GetStringAsync(gistUrl);
+        var separator = gistUrl.Contains('?') ? "&" : "?";
+        var cacheBusterUrl = $"{gistUrl}{separator}_t={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, cacheBusterUrl);
+        request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
+        {
+            NoCache = true,
+            NoStore = true,
+            MustRevalidate = true
+        };
+        request.Headers.Pragma.ParseAdd("no-cache");
+
+        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead);
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<LicenseManifest>(json,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                ?? new LicenseManifest();
