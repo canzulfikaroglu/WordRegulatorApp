@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using WordRegulator.Application.Services;
@@ -376,8 +377,39 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
 
             if (!hasLayerTemplate) continue;
 
-            
-            
+            // Tablo öncesindeki serim paragraflarını (formül, kot bilgisi vb.) tespit et
+            var precedingParas = new List<Paragraph>();
+            var prevSib = table.PreviousSibling();
+            while (prevSib != null)
+            {
+                if (prevSib is Paragraph prevPara)
+                {
+                    string pText = prevPara.InnerText;
+                    if (pText.Contains("{{SERIES_") || pText.Contains("{{SERIM_"))
+                    {
+                        precedingParas.Insert(0, prevPara);
+                        prevSib = prevSib.PreviousSibling();
+                        continue;
+                    }
+                    else if (string.IsNullOrWhiteSpace(pText))
+                    {
+                        var check = prevSib.PreviousSibling();
+                        while (check != null && check is Paragraph cp && string.IsNullOrWhiteSpace(cp.InnerText))
+                        {
+                            check = check.PreviousSibling();
+                        }
+                        if (check is Paragraph checkP && (checkP.InnerText.Contains("{{SERIES_") || checkP.InnerText.Contains("{{SERIM_")))
+                        {
+                            precedingParas.Insert(0, prevPara);
+                            prevSib = prevSib.PreviousSibling();
+                            continue;
+                        }
+                    }
+                }
+                break;
+            }
+
+            // Tablo sonrası başlık/açıklama paragrafını bul (Tablo 18b...)
             Paragraph? titleParagraph = null;
             var nextSib = table.NextSibling();
             while (nextSib != null)
@@ -386,20 +418,41 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 {
                     string pText = nextPara.InnerText;
                     if (pText.Contains("{{SERIES_") || pText.Contains("{{SERIM_"))
+                    {
                         titleParagraph = nextPara;
+                        break;
+                    }
+                    if (!string.IsNullOrWhiteSpace(pText))
+                    {
+                        break;
+                    }
+                }
+                else
+                {
                     break;
                 }
                 nextSib = nextSib.NextSibling();
             }
 
-            
+            var anchor = precedingParas.Count > 0 ? (OpenXmlElement)precedingParas[0] : table;
+            var parent = anchor.Parent ?? table.Parent ?? body;
+
             foreach (var s in seriesList)
             {
-                
+                var seriesOnlyReplacements = GetSeriesReplacementsDictionary(s);
+
+                // 1. Serim formül ve kot paragrafları
+                foreach (var prePara in precedingParas)
+                {
+                    var clonedPre = (Paragraph)prePara.CloneNode(true);
+                    totalReplacements += ReplaceInParagraph(clonedPre, seriesOnlyReplacements, replacedKeys);
+                    parent.InsertBefore(clonedPre, anchor);
+                }
+
+                // 2. Serim tablosu
                 var clonedTable = (Table)table.CloneNode(true);
                 var clonedRows = clonedTable.Elements<TableRow>().ToList();
 
-                
                 var templateDataRow = clonedRows.FirstOrDefault(r =>
                     r.InnerText.Contains("{{H}}") ||
                     r.InnerText.Contains("{{LAYER_") ||
@@ -487,35 +540,31 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                         }
                     }
 
-                    
                     templateDataRow.Remove();
                 }
 
-                
-                var seriesOnlyReplacements = GetSeriesReplacementsDictionary(s);
                 foreach (var row in clonedTable.Elements<TableRow>())
                 {
-                    
                     totalReplacements += ProcessElementContainers(row, seriesOnlyReplacements, replacedKeys);
                 }
 
-                
-                body.InsertBefore(clonedTable, table);
+                parent.InsertBefore(clonedTable, anchor);
                 totalReplacements++;
 
-                
+                // 3. Serim tablo başlığı / açıklama paragrafı
                 if (titleParagraph != null)
                 {
                     var clonedPara = (Paragraph)titleParagraph.CloneNode(true);
                     totalReplacements += ReplaceInParagraph(clonedPara, seriesOnlyReplacements, replacedKeys);
-                    body.InsertBefore(clonedPara, table);
+                    parent.InsertBefore(clonedPara, anchor);
                 }
             }
 
-            
             table.Remove();
 
-            
+            foreach (var p in precedingParas)
+                p.Remove();
+
             if (titleParagraph != null)
                 titleParagraph.Remove();
         }
