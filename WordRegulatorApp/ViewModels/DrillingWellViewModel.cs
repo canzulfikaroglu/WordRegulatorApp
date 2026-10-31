@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -154,8 +154,9 @@ public partial class DrillingWellViewModel : ObservableObject
                 dateStr = dt2.AddDays(4 * (idx - 2)).ToString("dd.MM.yyyy");
             }
 
-            string depth = IsCollapsed ? "Kuyu çökmüş" : "2,70";
-            var m = new GroundwaterMeasurementViewModel(idx, dateStr, depth, dayStr, !IsCollapsed);
+            string depth = IsCollapsed ? string.Empty : "2,70";
+            string day = IsCollapsed ? "Kuyu çökmüş" : dayStr;
+            var m = new GroundwaterMeasurementViewModel(idx, dateStr, depth, day, !IsCollapsed);
             m.MeasurementChanged += OnMeasurementItemChanged;
             Measurements.Add(m);
         }
@@ -171,15 +172,20 @@ public partial class DrillingWellViewModel : ObservableObject
         {
             if (IsCollapsed)
             {
-                Measurements[0].WaterDepth = "Kuyu çökmüş";
+                Measurements[0].WaterDepth = string.Empty;
+                Measurements[0].Day = "Kuyu çökmüş";
                 Measurements[0].IsEditable = false;
             }
             else
             {
                 Measurements[0].IsEditable = true;
-                if (Measurements[0].WaterDepth == "Kuyu çökmüş")
+                if (string.IsNullOrWhiteSpace(Measurements[0].WaterDepth) || Measurements[0].WaterDepth == "Kuyu çökmüş")
                 {
                     Measurements[0].WaterDepth = "2,70";
+                }
+                if (Measurements[0].Day == "Kuyu çökmüş")
+                {
+                    Measurements[0].Day = GetDefaultDayString(1);
                 }
             }
         }

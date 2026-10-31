@@ -233,20 +233,23 @@ public class VariableService : IVariableService
                 
                 var lastM = w.Measurements.Last();
                 replacements[$"SK{idx}_MEASURE_DATE"] = lastM.MeasurementDate;
-                replacements[$"SK{idx}_WATER_DEPTH"] = lastM.WaterDepth;
+                replacements[$"SK{idx}_WATER_DEPTH"] = w.IsCollapsed ? "" : lastM.WaterDepth;
+                replacements[$"SK{idx}_DAY"] = w.IsCollapsed ? "Kuyu çökmüş" : lastM.Day;
 
                 
                 for (int m = 0; m < w.Measurements.Count; m++)
                 {
                     int mIdx = m + 1;
                     replacements[$"SK{idx}_MEASURE{mIdx}_DATE"] = w.Measurements[m].MeasurementDate;
-                    replacements[$"SK{idx}_MEASURE{mIdx}_DEPTH"] = w.Measurements[m].WaterDepth;
+                    replacements[$"SK{idx}_MEASURE{mIdx}_DEPTH"] = w.IsCollapsed ? "" : w.Measurements[m].WaterDepth;
+                    replacements[$"SK{idx}_MEASURE{mIdx}_DAY"] = w.IsCollapsed ? "Kuyu çökmüş" : w.Measurements[m].Day;
                 }
             }
             else
             {
                 replacements[$"SK{idx}_MEASURE_DATE"] = string.Empty;
-                replacements[$"SK{idx}_WATER_DEPTH"] = w.IsCollapsed ? "Kuyu çökmüş" : string.Empty;
+                replacements[$"SK{idx}_WATER_DEPTH"] = string.Empty;
+                replacements[$"SK{idx}_DAY"] = w.IsCollapsed ? "Kuyu çökmüş" : string.Empty;
             }
 
             

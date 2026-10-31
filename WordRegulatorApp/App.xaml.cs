@@ -22,6 +22,17 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        EventManager.RegisterClassHandler(
+            typeof(System.Windows.Controls.TextBox),
+            UIElement.GotKeyboardFocusEvent,
+            new System.Windows.Input.KeyboardFocusChangedEventHandler((sender, args) =>
+            {
+                if (sender is System.Windows.Controls.TextBox textBox)
+                {
+                    textBox.Dispatcher.BeginInvoke(new Action(() => textBox.SelectAll()));
+                }
+            }));
+
         var services = new ServiceCollection();
         ConfigureServices(services);
         ServiceProvider = services.BuildServiceProvider();

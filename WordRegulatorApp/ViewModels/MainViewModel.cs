@@ -294,9 +294,32 @@ public partial class MainViewModel : ObservableObject
         RecalculateAllSeries();
     }
 
+    private CancellationTokenSource? _vs30SeriesDebounceCts;
+
     partial void OnVs30SeriesCountInputChanged(string value)
     {
-        SetupVs30Series();
+        _vs30SeriesDebounceCts?.Cancel();
+        _vs30SeriesDebounceCts = new CancellationTokenSource();
+        var token = _vs30SeriesDebounceCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(3000, token);
+                await Task.Delay(1000, token);
+
+                System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                {
+                    if (!token.IsCancellationRequested)
+                    {
+                        SetupVs30Series();
+                        RequestDebouncedSaveState();
+                    }
+                });
+            }
+            catch (OperationCanceledException) { }
+        }, token);
     }
 
     partial void OnDfInputChanged(string value)
@@ -309,14 +332,16 @@ public partial class MainViewModel : ObservableObject
     {
         RecalculateVs30();
         RecalculateAllSeries();
+        RequestDebouncedSaveState();
     }
 
     private void OnVs30SeriesChanged(object? sender, EventArgs e)
     {
         RecalculateAllSeries();
+        RequestDebouncedSaveState();
     }
 
-        private void RecalculateVs30()
+    private void RecalculateVs30()
     {
         RecalculateAllSeries();
     }
@@ -327,7 +352,7 @@ public partial class MainViewModel : ObservableObject
         {
             count = 1;
         }
-        if (count > 50) count = 50;
+        if (count > 200) count = 200;
 
         while (Vs30Series.Count < count)
         {
@@ -425,9 +450,32 @@ public partial class MainViewModel : ObservableObject
             : "—";
     }
 
+    private CancellationTokenSource? _drillingWellDebounceCts;
+
     partial void OnDrillingWellCountInputChanged(string value)
     {
-        SetupDrillingWells();
+        _drillingWellDebounceCts?.Cancel();
+        _drillingWellDebounceCts = new CancellationTokenSource();
+        var token = _drillingWellDebounceCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(3000, token);
+                await Task.Delay(1000, token);
+
+                System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                {
+                    if (!token.IsCancellationRequested)
+                    {
+                        SetupDrillingWells();
+                        RequestDebouncedSaveState();
+                    }
+                });
+            }
+            catch (OperationCanceledException) { }
+        }, token);
     }
 
 
@@ -469,7 +517,7 @@ public partial class MainViewModel : ObservableObject
         {
             count = 1;
         }
-        if (count > 30) count = 30;
+        if (count > 200) count = 200;
 
         while (DrillingWells.Count < count)
         {
@@ -498,6 +546,7 @@ public partial class MainViewModel : ObservableObject
     private void OnDrillingWellChanged(object? sender, EventArgs e)
     {
         RecalculateDrillingWellsSummary();
+        RequestDebouncedSaveState();
     }
 
     private void RecalculateDrillingWellsSummary()
@@ -1495,6 +1544,14 @@ public partial class MainViewModel : ObservableObject
                 BulkModulusLayer2 = s.BulkModulusLayer2,
                 ElasticityModulusLayer1 = s.ElasticityModulusLayer1,
                 ElasticityModulusLayer2 = s.ElasticityModulusLayer2,
+                SelectedLayerCount = s.SelectedLayerCount,
+                SelectedLayerCount2 = s.SelectedLayerCount2,
+                Layers = s.Layers.Select(l => new
+                {
+                    StartDepth = l.StartDepthInput,
+                    EndDepth = l.EndDepthInput,
+                    Velocity = l.VelocityInput
+                }).ToList(),
                 Layers2 = s.Layers2.Select(l2 => new
                 {
                     StartDepth = l2.StartDepthInput,
@@ -1603,6 +1660,21 @@ public partial class MainViewModel : ObservableObject
                     if (el.TryGetProperty("BulkModulusLayer2", out var bk2)) s.BulkModulusLayer2 = bk2.GetString() ?? s.BulkModulusLayer2;
                     if (el.TryGetProperty("ElasticityModulusLayer1", out var em1)) s.ElasticityModulusLayer1 = em1.GetString() ?? s.ElasticityModulusLayer1;
                     if (el.TryGetProperty("ElasticityModulusLayer2", out var em2)) s.ElasticityModulusLayer2 = em2.GetString() ?? s.ElasticityModulusLayer2;
+                    if (el.TryGetProperty("SelectedLayerCount", out var slc)) s.SelectedLayerCount = slc.GetInt32();
+                    if (el.TryGetProperty("SelectedLayerCount2", out var slc2)) s.SelectedLayerCount2 = slc2.GetInt32();
+
+                    if (el.TryGetProperty("Layers", out var lEl) && lEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    {
+                        var lArr = lEl.EnumerateArray().ToList();
+                        for (int j = 0; j < Math.Min(lArr.Count, s.Layers.Count); j++)
+                        {
+                            var l = s.Layers[j];
+                            if (lArr[j].TryGetProperty("StartDepth", out var lsd)) l.StartDepthInput = lsd.GetString() ?? l.StartDepthInput;
+                            if (lArr[j].TryGetProperty("EndDepth", out var led)) l.EndDepthInput = led.GetString() ?? l.EndDepthInput;
+                            if (lArr[j].TryGetProperty("Velocity", out var lv)) l.VelocityInput = lv.GetString() ?? l.VelocityInput;
+                        }
+                    }
+
                     if (el.TryGetProperty("Layers2", out var l2El) && l2El.ValueKind == System.Text.Json.JsonValueKind.Array)
                     {
                         var l2Arr = l2El.EnumerateArray().ToList();
@@ -1723,5 +1795,29 @@ public partial class MainViewModel : ObservableObject
             RecalculateDrillingWellsSummary();
         }
         catch { }
+    }
+
+    private CancellationTokenSource? _autoSaveCts;
+    public void RequestDebouncedSaveState()
+    {
+        _autoSaveCts?.Cancel();
+        _autoSaveCts = new CancellationTokenSource();
+        var token = _autoSaveCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(1000, token);
+                System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                {
+                    if (!token.IsCancellationRequested)
+                    {
+                        SaveState();
+                    }
+                });
+            }
+            catch (OperationCanceledException) { }
+        }, token);
     }
 }

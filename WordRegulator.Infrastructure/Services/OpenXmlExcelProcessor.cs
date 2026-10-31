@@ -240,19 +240,22 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
 
         if (measureCount == 0)
         {
-            string emptyDepth = well.IsCollapsed ? "Kuyu çökmüş" : string.Empty;
+            string emptyDepth = string.Empty;
+            string emptyDay = well.IsCollapsed ? "Kuyu çökmüş" : string.Empty;
             SetCellValue(cellDepth1, emptyDepth, doc);
             SetCellValue(cellDate1, string.Empty, doc);
-            SetCellValue(cellDay1, string.Empty, doc);
+            SetCellValue(cellDay1, emptyDay, doc);
             replacedKeys.Add("WELL_WATER_DEPTH");
             replacedKeys.Add("WELL_MEASURE_DATE");
             replacedKeys.Add("DAY");
             return 3;
         }
 
-        SetCellValue(cellDepth1, well.Measurements[0].WaterDepth ?? string.Empty, doc);
+        string firstDepth = well.IsCollapsed ? string.Empty : (well.Measurements[0].WaterDepth ?? string.Empty);
+        string firstDay = well.IsCollapsed ? "Kuyu çökmüş" : (well.Measurements[0].Day ?? string.Empty);
+        SetCellValue(cellDepth1, firstDepth, doc);
         SetCellValue(cellDate1, well.Measurements[0].MeasurementDate ?? string.Empty, doc);
-        SetCellValue(cellDay1, well.Measurements[0].Day ?? string.Empty, doc);
+        SetCellValue(cellDay1, firstDay, doc);
         replacedKeys.Add("WELL_WATER_DEPTH");
         replacedKeys.Add("WELL_MEASURE_DATE");
         replacedKeys.Add("DAY");
@@ -662,13 +665,15 @@ public class OpenXmlExcelProcessor : IExcelDocumentProcessor
         d["WELL_MEASURE_DATE"]     = firstMeasure?.MeasurementDate ?? "";
         d["WELL_MEASUREMENT_DATE"] = firstMeasure?.MeasurementDate ?? "";
         d["SONDAJ_OLCUM_TARIHI"]   = firstMeasure?.MeasurementDate ?? "";
-        d["WELL_WATER_DEPTH"]      = firstMeasure?.WaterDepth ?? (well.IsCollapsed ? "Kuyu çökmüş" : "");
-        d["WELL_GW_DEPTH"]         = firstMeasure?.WaterDepth ?? "";
-        d["SONDAJ_SU_DERINLIK"]    = firstMeasure?.WaterDepth ?? "";
-        d["DAY"]                   = firstMeasure?.Day ?? "";
-        d["GUN"]                   = firstMeasure?.Day ?? "";
-        d["WELL_DAY"]              = firstMeasure?.Day ?? "";
-        d["ACIKLAMA"]              = firstMeasure?.Day ?? "";
+        string mDepth = well.IsCollapsed ? "" : (firstMeasure?.WaterDepth ?? "");
+        string mDay = well.IsCollapsed ? "Kuyu çökmüş" : (firstMeasure?.Day ?? "");
+        d["WELL_WATER_DEPTH"]      = mDepth;
+        d["WELL_GW_DEPTH"]         = mDepth;
+        d["SONDAJ_SU_DERINLIK"]    = mDepth;
+        d["DAY"]                   = mDay;
+        d["GUN"]                   = mDay;
+        d["WELL_DAY"]              = mDay;
+        d["ACIKLAMA"]              = mDay;
 
         return d;
     }

@@ -297,44 +297,67 @@
                                                         </StackPanel>
                                                     </WrapPanel>
 
-                                                    <TextBlock Text="1. Tabaka — Poisson / Kayma / Bulk / Elastisite" FontSize="11" FontWeight="Bold" Foreground="#A78BFA" Margin="0,8,0,4"/>
+                                                    <TextBlock Text="Dinamik Parametreler (1. ve 2. Tabaka)" FontSize="11" FontWeight="Bold" Foreground="#A78BFA" Margin="0,8,0,6"/>
                                                     <WrapPanel>
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,12,4">
-                                                            <TextBlock Text="Poisson:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                            <TextBox Text="{Binding PoissonLayer1, UpdateSourceTrigger=PropertyChanged}" Width="70" Height="24" Padding="4,2" Style="{StaticResource DarkTextBoxStyle}"/>
-                                                        </StackPanel>
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,12,4">
-                                                            <TextBlock Text="Kayma:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                            <TextBox Text="{Binding ShearModulusLayer1, UpdateSourceTrigger=PropertyChanged}" Width="70" Height="24" Padding="4,2" Style="{StaticResource DarkTextBoxStyle}"/>
-                                                        </StackPanel>
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,12,4">
-                                                            <TextBlock Text="Bulk:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                            <TextBox Text="{Binding BulkModulusLayer1, UpdateSourceTrigger=PropertyChanged}" Width="70" Height="24" Padding="4,2" Style="{StaticResource DarkTextBoxStyle}"/>
-                                                        </StackPanel>
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                                            <TextBlock Text="Elastisite:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                            <TextBox Text="{Binding ElasticityModulusLayer1, UpdateSourceTrigger=PropertyChanged}" Width="70" Height="24" Padding="4,2" Style="{StaticResource DarkTextBoxStyle}"/>
-                                                        </StackPanel>
-                                                    </WrapPanel>
+                                                        <!-- POISSON -->
+                                                        <Border Background="#1A1829" CornerRadius="6" Padding="8,4" Margin="0,0,10,4" BorderBrush="#3B3558" BorderThickness="1">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="Poisson:" FontSize="10" FontWeight="Bold" Foreground="#C4B5FD" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                                <StackPanel Orientation="Horizontal" Margin="0,0,6,0">
+                                                                    <TextBlock Text="1.T: " FontSize="9" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                                                                    <TextBox Text="{Binding PoissonLayer1, UpdateSourceTrigger=PropertyChanged}" Width="58" Height="24" Padding="3,2" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                                </StackPanel>
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <TextBlock Text="2.T: " FontSize="9" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                                                                    <TextBox Text="{Binding PoissonLayer2, UpdateSourceTrigger=PropertyChanged}" Width="58" Height="24" Padding="3,2" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                                </StackPanel>
+                                                            </StackPanel>
+                                                        </Border>
 
-                                                    <TextBlock Text="2. Tabaka — Poisson / Kayma / Bulk / Elastisite" FontSize="11" FontWeight="Bold" Foreground="#A78BFA" Margin="0,8,0,4"/>
-                                                    <WrapPanel>
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,12,4">
-                                                            <TextBlock Text="Poisson:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                            <TextBox Text="{Binding PoissonLayer2, UpdateSourceTrigger=PropertyChanged}" Width="70" Height="24" Padding="4,2" Style="{StaticResource DarkTextBoxStyle}"/>
-                                                        </StackPanel>
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,12,4">
-                                                            <TextBlock Text="Kayma:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                            <TextBox Text="{Binding ShearModulusLayer2, UpdateSourceTrigger=PropertyChanged}" Width="70" Height="24" Padding="4,2" Style="{StaticResource DarkTextBoxStyle}"/>
-                                                        </StackPanel>
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,12,4">
-                                                            <TextBlock Text="Bulk:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                            <TextBox Text="{Binding BulkModulusLayer2, UpdateSourceTrigger=PropertyChanged}" Width="70" Height="24" Padding="4,2" Style="{StaticResource DarkTextBoxStyle}"/>
-                                                        </StackPanel>
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                                            <TextBlock Text="Elastisite:" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                            <TextBox Text="{Binding ElasticityModulusLayer2, UpdateSourceTrigger=PropertyChanged}" Width="70" Height="24" Padding="4,2" Style="{StaticResource DarkTextBoxStyle}"/>
-                                                        </StackPanel>
+                                                        <!-- KAYMA -->
+                                                        <Border Background="#1A1829" CornerRadius="6" Padding="8,4" Margin="0,0,10,4" BorderBrush="#3B3558" BorderThickness="1">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="Kayma:" FontSize="10" FontWeight="Bold" Foreground="#C4B5FD" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                                <StackPanel Orientation="Horizontal" Margin="0,0,6,0">
+                                                                    <TextBlock Text="1.T: " FontSize="9" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                                                                    <TextBox Text="{Binding ShearModulusLayer1, UpdateSourceTrigger=PropertyChanged}" Width="58" Height="24" Padding="3,2" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                                </StackPanel>
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <TextBlock Text="2.T: " FontSize="9" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                                                                    <TextBox Text="{Binding ShearModulusLayer2, UpdateSourceTrigger=PropertyChanged}" Width="58" Height="24" Padding="3,2" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                                </StackPanel>
+                                                            </StackPanel>
+                                                        </Border>
+
+                                                        <!-- BULK -->
+                                                        <Border Background="#1A1829" CornerRadius="6" Padding="8,4" Margin="0,0,10,4" BorderBrush="#3B3558" BorderThickness="1">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="Bulk:" FontSize="10" FontWeight="Bold" Foreground="#C4B5FD" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                                <StackPanel Orientation="Horizontal" Margin="0,0,6,0">
+                                                                    <TextBlock Text="1.T: " FontSize="9" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                                                                    <TextBox Text="{Binding BulkModulusLayer1, UpdateSourceTrigger=PropertyChanged}" Width="58" Height="24" Padding="3,2" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                                </StackPanel>
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <TextBlock Text="2.T: " FontSize="9" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                                                                    <TextBox Text="{Binding BulkModulusLayer2, UpdateSourceTrigger=PropertyChanged}" Width="58" Height="24" Padding="3,2" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                                </StackPanel>
+                                                            </StackPanel>
+                                                        </Border>
+
+                                                        <!-- ELASTISITE -->
+                                                        <Border Background="#1A1829" CornerRadius="6" Padding="8,4" Margin="0,0,0,4" BorderBrush="#3B3558" BorderThickness="1">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="Elastisite:" FontSize="10" FontWeight="Bold" Foreground="#C4B5FD" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                                <StackPanel Orientation="Horizontal" Margin="0,0,6,0">
+                                                                    <TextBlock Text="1.T: " FontSize="9" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                                                                    <TextBox Text="{Binding ElasticityModulusLayer1, UpdateSourceTrigger=PropertyChanged}" Width="58" Height="24" Padding="3,2" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                                </StackPanel>
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <TextBlock Text="2.T: " FontSize="9" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                                                                    <TextBox Text="{Binding ElasticityModulusLayer2, UpdateSourceTrigger=PropertyChanged}" Width="58" Height="24" Padding="3,2" Style="{StaticResource DarkTextBoxStyle}"/>
+                                                                </StackPanel>
+                                                            </StackPanel>
+                                                        </Border>
                                                     </WrapPanel>
                                                 </StackPanel>
                                             </Border>

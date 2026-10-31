@@ -217,8 +217,15 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                                                 rowText.Contains("{{GUN}}");
 
                 int wellNoColIndex = -1;
+                int groundKotColIndex = -1;
+                bool hasDayColumn = false;
                 if (isWaterMeasurementTable)
                 {
+                    hasDayColumn = rowText.Contains("{{DAY}}", StringComparison.OrdinalIgnoreCase) ||
+                                   rowText.Contains("{{GUN}}", StringComparison.OrdinalIgnoreCase) ||
+                                   rowText.Contains("{{WELL_DAY}}", StringComparison.OrdinalIgnoreCase) ||
+                                   rowText.Contains("{{ACIKLAMA}}", StringComparison.OrdinalIgnoreCase);
+
                     var tplCells = row.Elements<TableCell>().ToList();
                     for (int ci = 0; ci < tplCells.Count; ci++)
                     {
@@ -229,7 +236,13 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                             ct.Contains("SK_NAME", StringComparison.OrdinalIgnoreCase))
                         {
                             wellNoColIndex = ci;
-                            break;
+                        }
+                        else if (ct.Contains("WELL_GROUNDKOT", StringComparison.OrdinalIgnoreCase) ||
+                                 ct.Contains("SONDAJ_ARAZI_KOTU", StringComparison.OrdinalIgnoreCase) ||
+                                 ct.Contains("SONDAJ_KOTU", StringComparison.OrdinalIgnoreCase) ||
+                                 ct.Contains("ZEMIN_KOTU", StringComparison.OrdinalIgnoreCase))
+                        {
+                            groundKotColIndex = ci;
                         }
                     }
                     if (wellNoColIndex == -1) wellNoColIndex = 0;
@@ -243,23 +256,30 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                     {
                         var measurements = w.Measurements.Count > 0
                             ? w.Measurements
-                            : new List<GroundwaterMeasurementItem> { new GroundwaterMeasurementItem { MeasurementDate = "", WaterDepth = w.IsCollapsed ? "Kuyu çökmüş" : "" } };
+                            : new List<GroundwaterMeasurementItem> { new GroundwaterMeasurementItem { MeasurementDate = "", WaterDepth = "" } };
 
                         var wellRows = new List<TableRow>();
                         for (int j = 0; j < measurements.Count; j++)
                         {
                             var m = measurements[j];
                             var newRow = (TableRow)row.CloneNode(true);
-                            var wellReplacements = GetWellReplacementsDictionary(w, m, i + 1);
+                            var wellReplacements = GetWellReplacementsDictionary(w, m, i + 1, hasDayColumn);
 
                             totalReplacements += ProcessElementContainers(newRow, wellReplacements, replacedKeys);
                             table.InsertBefore(newRow, row);
                             wellRows.Add(newRow);
                         }
 
-                        if (wellRows.Count > 1 && wellNoColIndex >= 0)
+                        if (wellRows.Count > 1)
                         {
-                            ApplyVerticalMerge(wellRows, wellNoColIndex);
+                            if (wellNoColIndex >= 0)
+                            {
+                                ApplyVerticalMerge(wellRows, wellNoColIndex);
+                            }
+                            if (groundKotColIndex >= 0)
+                            {
+                                ApplyVerticalMerge(wellRows, groundKotColIndex);
+                            }
                         }
                     }
                     else
@@ -302,8 +322,8 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             var pText = p.InnerText;
             
             bool isDynamic = !string.IsNullOrEmpty(pText) &&
-                             (pText.Contains("{{WELL_") || pText.Contains("{{SONDAJ_") || pText.Contains("{{SK_"))
-                             && !pText.Contains("{{SONDAJ_PM_") && !pText.Contains("{{SK_PM_");
+                             ((pText.Contains("{{WELL_") || pText.Contains("{{SONDAJ_") || pText.Contains("{{SK_") || pText.Contains("{{SANDIK_FOTOGRAF"))
+                             && !pText.Contains("{{SONDAJ_PM_") && !pText.Contains("{{SK_PM_"));
 
             if (isDynamic)
             {
@@ -417,7 +437,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                 if (nextSib is Paragraph nextPara)
                 {
                     string pText = nextPara.InnerText;
-                    if (pText.Contains("{{SERIES_") || pText.Contains("{{SERIM_"))
+                    if (pText.Contains("{{SERIES_") || pText.Contains("{{SERIM_") || pText.Contains("{{CASE}}") || pText.Contains("{{CASE_"))
                     {
                         titleParagraph = nextPara;
                         break;
@@ -437,9 +457,11 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             var anchor = precedingParas.Count > 0 ? (OpenXmlElement)precedingParas[0] : table;
             var parent = anchor.Parent ?? table.Parent ?? body;
 
-            foreach (var s in seriesList)
+            for (int sIdx = 0; sIdx < seriesList.Count; sIdx++)
             {
-                var seriesOnlyReplacements = GetSeriesReplacementsDictionary(s);
+                var s = seriesList[sIdx];
+                string caseLetter = GetCaseLetter(sIdx, 'b');
+                var seriesOnlyReplacements = GetSeriesReplacementsDictionary(s, caseLetter: caseLetter);
 
                 // 1. Serim formül ve kot paragrafları
                 foreach (var prePara in precedingParas)
@@ -507,7 +529,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                             firstValidInserted = true;
 
                             var newRow = (TableRow)templateDataRow.CloneNode(true);
-                            var layerReplacements = GetSeriesReplacementsDictionary(s, l, h_i, isFirstRow);
+                            var layerReplacements = GetSeriesReplacementsDictionary(s, l, h_i, isFirstRow, caseLetter);
                             totalReplacements += ProcessElementContainers(newRow, layerReplacements, replacedKeys);
                             clonedTable.InsertBefore(newRow, templateDataRow);
                             insertedHRows.Add(newRow);
@@ -523,7 +545,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                         {
                             var l = layers2[j];
                             var newRow = (TableRow)templateDataRow.CloneNode(true);
-                            var layerReplacements = GetSeriesReplacementsDictionary(s, l, 0, false);
+                            var layerReplacements = GetSeriesReplacementsDictionary(s, l, 0, false, caseLetter);
                             totalReplacements += ProcessElementContainers(newRow, layerReplacements, replacedKeys);
                             clonedTable.InsertBefore(newRow, templateDataRow);
                         }
@@ -534,7 +556,7 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
                         {
                             var l = s.Layers[j];
                             var newRow = (TableRow)templateDataRow.CloneNode(true);
-                            var layerReplacements = GetSeriesReplacementsDictionary(s, l, 0, false);
+                            var layerReplacements = GetSeriesReplacementsDictionary(s, l, 0, false, caseLetter);
                             totalReplacements += ProcessElementContainers(newRow, layerReplacements, replacedKeys);
                             clonedTable.InsertBefore(newRow, templateDataRow);
                         }
@@ -1409,7 +1431,19 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
 
     private static readonly System.Globalization.CultureInfo TrCulture = new System.Globalization.CultureInfo("tr-TR");
 
-    private Dictionary<string, string> GetSeriesReplacementsDictionary(Vs30SeriesItem s, Vs30LayerItem? layer = null, double layerH = 0, bool isFirstValidRow = false)
+    private static string GetCaseLetter(int index, char startChar = 'b')
+    {
+        int offset = (startChar - 'a') + index;
+        if (offset < 26)
+        {
+            return ((char)('a' + offset)).ToString();
+        }
+        int first = (offset / 26) - 1;
+        int second = offset % 26;
+        return $"{(char)('a' + first)}{(char)('a' + second)}";
+    }
+
+    private Dictionary<string, string> GetSeriesReplacementsDictionary(Vs30SeriesItem s, Vs30LayerItem? layer = null, double layerH = 0, bool isFirstValidRow = false, string caseLetter = "b")
     {
         
         string surfaceVs30Raw = string.IsNullOrWhiteSpace(s.SurfaceVs30) ? s.Vs30Result : s.SurfaceVs30.Trim();
@@ -1493,6 +1527,10 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             ["SERIES_T0"] = s.T0,
             ["SERIM_T0"] = s.T0,
 
+            ["CASE"] = caseLetter,
+            ["CASE_LOWER"] = caseLetter.ToLowerInvariant(),
+            ["CASE_UPPER"] = caseLetter.ToUpperInvariant(),
+
             ["SERIES_SEISMIC_SUMMARY"] = seismicSummaryText,
             ["SERIES_T0_SUMMARY"] = seismicSummaryText,
             ["SERIM_T0_OZET"] = seismicSummaryText,
@@ -1547,11 +1585,20 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
         return dict;
     }
 
-    private Dictionary<string, string> GetWellReplacementsDictionary(DrillingWellItem w, GroundwaterMeasurementItem? m = null, int index = 0)
+    private Dictionary<string, string> GetWellReplacementsDictionary(DrillingWellItem w, GroundwaterMeasurementItem? m = null, int index = 0, bool hasDayColumn = true)
     {
         var targetMeasurement = m ?? w.Measurements.FirstOrDefault();
         string measureDate = targetMeasurement != null ? targetMeasurement.MeasurementDate : "";
-        string waterDepth = targetMeasurement != null ? targetMeasurement.WaterDepth : (w.IsCollapsed ? "Kuyu çökmüş" : "");
+        string waterDepth;
+        if (w.IsCollapsed)
+        {
+            waterDepth = hasDayColumn ? "" : "Kuyu çökmüş";
+        }
+        else
+        {
+            waterDepth = targetMeasurement != null ? (targetMeasurement.WaterDepth ?? "") : "";
+        }
+        string dayValue = w.IsCollapsed ? "Kuyu çökmüş" : (targetMeasurement?.Day ?? "");
 
         return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -1602,10 +1649,14 @@ public class OpenXmlWordProcessor : IWordDocumentProcessor
             ["WELL_GW_DEPTH"] = waterDepth,
             ["SONDAJ_SU_DERINLIK"] = waterDepth,
 
-            ["DAY"] = targetMeasurement?.Day ?? "",
-            ["GUN"] = targetMeasurement?.Day ?? "",
-            ["WELL_DAY"] = targetMeasurement?.Day ?? "",
-            ["OLCUM_GUN"] = targetMeasurement?.Day ?? ""
+            ["DAY"] = dayValue,
+            ["GUN"] = dayValue,
+            ["WELL_DAY"] = dayValue,
+            ["OLCUM_GUN"] = dayValue,
+            ["ACIKLAMA"] = dayValue,
+
+            ["SANDIK_FOTOGRAFLARI"] = $"Fotoğraf {index}: {w.WellName} Sandık Fotoğrafı",
+            ["SANDIK_FOTOGRAFI"] = $"Fotoğraf {index}: {w.WellName} Sandık Fotoğrafı"
         };
     }
 
